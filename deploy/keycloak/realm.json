@@ -131,7 +131,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "alice", "temporary": false }],
-      "realmRoles": ["reader"]
+      "realmRoles": ["default-roles-app", "reader"]
     },
     {
       "username": "editor",
@@ -141,7 +141,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "editor", "temporary": false }],
-      "realmRoles": ["editor"]
+      "realmRoles": ["default-roles-app", "editor"]
     },
     {
       "username": "admin",
@@ -151,7 +151,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["admin"]
+      "realmRoles": ["default-roles-app", "admin"]
     },
     {
       "username": "bob",
@@ -161,7 +161,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "bob", "temporary": false }],
-      "realmRoles": ["editor"]
+      "realmRoles": ["default-roles-app", "editor"]
     },
     {
       "username": "carol",
@@ -171,7 +171,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "carol", "temporary": false }],
-      "realmRoles": ["editor"]
+      "realmRoles": ["default-roles-app", "editor"]
     }
   ],
   "organizations": [

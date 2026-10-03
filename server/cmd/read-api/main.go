@@ -16,6 +16,7 @@ import (
 	"github.com/logie4000/webapp-template/server/internal/auth"
 	"github.com/logie4000/webapp-template/server/internal/config"
 	"github.com/logie4000/webapp-template/server/internal/db"
+	"github.com/logie4000/webapp-template/server/internal/storage"
 )
 
 func main() {
@@ -47,6 +48,11 @@ func run() error {
 	}
 	defer pool.Close()
 
+	images, err := storage.New(cfg.ImageStorage, cfg.ImageStorageDir)
+	if err != nil {
+		return err
+	}
+
 	srv := &api.Server{
 		Pool:             pool,
 		Verifier:         auth.NewVerifier(context.Background(), cfg.OIDCIssuer, cfg.OIDCAudience, cfg.OIDCJWKSURL),
@@ -55,6 +61,7 @@ func run() error {
 		MinClientVersion: cfg.MinClientVersion,
 		AppVersion:       cfg.AppVersion,
 		CORSOrigins:      cfg.CORSAllowedOrigins,
+		Images:           images,
 	}
 
 	httpServer := &http.Server{

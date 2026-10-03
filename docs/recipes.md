@@ -10,7 +10,7 @@
 | `title` | varchar, not null | 1 to 200 characters |
 | `ingredients` | text[], default `{}` | ordered list. Items are stripped and blank ones dropped. Up to 200 items of 2,000 characters each. |
 | `directions` | text[], default `{}` | ordered steps, same rules as `ingredients` |
-| `image_key` | varchar, null | Storage hook for the image drop zone, which comes later. The API doesn't let clients set it yet, so nobody can point it at someone else's object. |
+| `image_key` | varchar, null | Where the photo of the finished dish is stored (`recipes/<24 random letters and digits>.jpg` (or `.png`, `.webp`)). Only the image upload endpoint sets it, to a file it just stored, so nobody can point it at someone else's photo. |
 | `is_public` | boolean, not null, default `false` | Private unless the owner makes it public. |
 | `public_id` | varchar, not null, unique | 12 random letters and digits for the public URL (`SecureRandom.alphanumeric(12)`, e.g. `k7Xq2mP9vR4t`), separate from the table's sequential `id`. The model generates it on create; clients can't set it, and it never changes (`attr_readonly`), even when the recipe is edited or made private and public again. |
 
@@ -68,10 +68,51 @@ the Rails write-api, so a recipe has one URL for every operation.
 | `GET /api/v1/public/recipes/:public_id` | read-api | none | a public recipe, read-only |
 | `POST /api/v1/recipes` | write-api | token | `{recipe: {title, ingredients: [], directions: [], is_public}}` gives 201 `{id, recipe}` |
 | `PATCH /api/v1/recipes/:id` | write-api | token | same body, partial update (including `is_public`) |
-| `DELETE /api/v1/recipes/:id` | write-api | token | |
+| `DELETE /api/v1/recipes/:id` | write-api | token | also deletes the photo |
+| `PUT /api/v1/recipes/:id/image` | write-api | token | multipart field `image`: adds or replaces the photo, returns `{id, recipe}` |
+| `DELETE /api/v1/recipes/:id/image` | write-api | token | removes the photo |
+| `GET /api/v1/recipes/:id/image` | read-api | token | the owner's photo |
+| `GET /api/v1/public/recipes/:public_id/image` | read-api | none | the photo of a public recipe |
 
 Writes require the `reader` realm role, as `private_notes` does. Make sure new
 family accounts get it (Keycloak default roles).
+
+## Photos
+
+One photo of the finished dish per recipe.
+
+- **Storage.** The write-api writes and deletes files through
+  `ImageStore` (`write-api/app/services/image_store.rb`); the read-api only
+  opens them (`server/internal/storage`). Both use `IMAGE_STORAGE=local` and
+  `IMAGE_STORAGE_DIR`: in development `<repo>/storage/images` (gitignored), in
+  containers the `images` volume at `/srv/images`, mounted read-only into the
+  read-api. Another backend such as S3 only needs `write`/`delete`/`exist?` in
+  Ruby and `Open` in Go. The volume is not in the nightly database backup yet.
+- **Upload.** The file type comes from the first bytes (JPEG, PNG or WebP;
+  never SVG), not the name or Content-Type. Up to 10 MB
+  (`RecipeImage::MAX_BYTES`; nginx allows 12 MB). Every upload gets a new
+  random key. The replaced file is deleted after the database change commits,
+  and the new file is deleted if it rolls back. The web app first shrinks
+  photos to 2000px and re-encodes them as JPEG in the browser, which also
+  strips EXIF data such as the phone's GPS position.
+- **Serving.** Same rules as the recipe itself: the owner's route filters on
+  `owner_sub` and RLS, the public route needs `is_public` and a valid code,
+  and everything else is one 404. The key is the ETag, so unchanged photos
+  are 304s; `Cache-Control: no-cache` makes browsers ask again each time, so
+  making a recipe private hides its photo at once. Responses carry
+  `nosniff` and a `sandbox` CSP.
+
+## Web pages
+
+| Path | What |
+|---|---|
+| `/recipes` | the user's recipes, newest first, with photos |
+| `/recipes/new`, `/recipes/:id/edit` | title, ingredient and step lists (add, remove, reorder; pasting a list splits it into lines), photo |
+| `/recipes/:id` | the recipe, a photo drop zone, the Private/Shared switch with a copyable link, Edit and Delete |
+| `/r/:public_id` | the shared, read-only page; no login |
+
+An `<img>` can't send a bearer token, so the owner's pages fetch the photo
+as a blob; the public page uses the public URL directly.
 
 ## Tests
 
@@ -81,6 +122,14 @@ family accounts get it (Keycloak default roles).
   switching back to private hides the recipe again, and `public_id` is random,
   unique, can't be set by clients, doesn't change, and is redrawn on a
   collision (with a cap on retries).
+- `write-api/spec/requests/api/v1/recipe_images_spec.rb`: upload, type
+  sniffing (an SVG named `.jpg` is refused), replace and remove delete the old
+  file, deleting the recipe deletes the photo, size limit, 404 for other
+  users, and key format checks.
+- `server/internal/storage/storage_test.go` and `TestServeImage`: keys outside
+  the format never reach the disk; headers, ETag and 304s.
+- `web/src/app/features/recipes/*.spec.ts`: API calls, form, share switch
+  and the public page.
 - `server/internal/api/api_test.go`: the recipe routes need a token; the
   public route doesn't, only answers GET, and returns 404 for anything that
   isn't 12 letters or digits.

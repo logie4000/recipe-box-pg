@@ -26,6 +26,8 @@ type Config struct {
 	MinClientVersion   string
 	AppVersion         string
 	LogFormat          string // "json" (default) or "text"
+	ImageStorage       string // "local" (default)
+	ImageStorageDir    string
 }
 
 func Load() (Config, error) {
@@ -44,6 +46,10 @@ func Load() (Config, error) {
 		MinClientVersion:   env("MIN_SUPPORTED_CLIENT_VERSION", "0.0.0"),
 		AppVersion:         env("APP_VERSION", "dev"),
 		LogFormat:          env("LOG_FORMAT", "json"),
+		ImageStorage:       env("IMAGE_STORAGE", "local"),
+		// Same directory the write-api stores photos in. `make api` runs from
+		// server/, so the dev default is <repo>/storage/images.
+		ImageStorageDir: env("IMAGE_STORAGE_DIR", filepath.Join("..", "storage", "images")),
 	}
 
 	maxConns, err := strconv.Atoi(env("READ_API_DB_MAX_CONNS", "10"))

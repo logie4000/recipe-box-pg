@@ -38,7 +38,8 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
-    client_max_body_size 10m;
+    # Recipe photos are up to 10 MB (RecipeImage::MAX_BYTES), plus multipart overhead.
+    client_max_body_size 12m;
 
     # Angular build output (web/dist/web/browser)
     root /srv/www/${APP_NAME};

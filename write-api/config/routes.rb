@@ -9,7 +9,9 @@ Rails.application.routes.draw do
     namespace :v1 do
       resources :notes, only: %i[create update destroy]
       resources :private_notes, only: %i[create destroy]
-      resources :recipes, only: %i[create update destroy]
+      resources :recipes, only: %i[create update destroy] do
+        resource :image, only: %i[update destroy], controller: "recipe_images"
+      end
     end
   end
 

@@ -18,16 +18,19 @@ interface Meta {
   selector: 'app-home',
   imports: [RouterLink],
   template: `
-    <h1>Web app template</h1>
+    <h1>Recipe Box</h1>
     @if (auth.isAuthenticated()) {
       <p>
         Signed in as <strong>{{ auth.displayName() }}</strong> ({{
           auth.roles().join(', ') || 'no roles'
         }}).
       </p>
-      <p><a routerLink="/notes">Go to notes</a></p>
+      <p><a routerLink="/recipes" class="button primary">Open my recipes</a></p>
     } @else {
-      <p>Sign in to see the example notes feature.</p>
+      <p>
+        Keep your recipes in one place: ingredients, directions and a photo of the finished dish.
+        They're private to you unless you share a link.
+      </p>
       <div class="actions">
         <button type="button" (click)="auth.login()">Sign in</button>
         <button type="button" (click)="auth.login('google')">Sign in with Google</button>

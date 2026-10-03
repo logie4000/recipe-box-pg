@@ -64,5 +64,10 @@ module WriteApi
     end
 
     config.x.tenant_mode = ENV.fetch("TENANT_MODE", "off") == "on"
+
+    # Recipe photos (app/services/image_store.rb). The read-api serves them
+    # from the same directory; in dev both default to <repo>/storage/images.
+    config.x.image_storage_dir = ENV["IMAGE_STORAGE_DIR"].presence ||
+      (Rails.env.test? ? Rails.root.join("tmp/test-images") : Rails.root.join("../storage/images")).to_s
   end
 end

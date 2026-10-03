@@ -66,10 +66,10 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_reader",
 		"INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('hello', '', 'seed', now(), now())",
 		"INSERT INTO private_notes (owner_sub, body, created_at, updated_at) VALUES ('alice', 'a', now(), now()), ('bob', 'b', now(), now())",
-		"INSERT INTO recipes (id, public_id, owner_sub, title, ingredients, directions, is_public, created_at, updated_at) VALUES " +
-			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, now(), now()), " +
-			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, now(), now()), " +
-			"(3, '" + chiliPublicID + "', 'bob', 'Chili', '{beans}', '{Simmer}', false, now(), now())",
+		"INSERT INTO recipes (id, public_id, owner_sub, title, ingredients, directions, is_public, image_key, created_at, updated_at) VALUES " +
+			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, '" + pancakesImage + "', now(), now()), " +
+			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, '" + soupImage + "', now(), now()), " +
+			"(3, '" + chiliPublicID + "', 'bob', 'Chili', '{beans}', '{Simmer}', false, NULL, now(), now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
 			t.Fatalf("setup %q: %v", firstLine(stmt), err)
@@ -131,6 +131,8 @@ const (
 	pancakesPublicID = "Pancakes0001"
 	soupPublicID     = "SoupSoup0002"
 	chiliPublicID    = "ChiliChili03"
+	pancakesImage    = "recipes/PancakesPancakesPancakes.jpg"
+	soupImage        = "recipes/SoupSoupSoupSoupSoupSoup.jpg"
 )
 
 func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
@@ -185,6 +187,47 @@ func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 				if _, err := q.GetPublicRecipe(ctx, id); !errors.Is(err, pgx.ErrNoRows) {
 					return fmt.Errorf("recipe %s: err = %v, want no rows", id, err)
 				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("recipes: photos follow the same owner and public rules", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "alice"}, func(q *sqlc.Queries) error {
+			key, err := q.GetRecipeImageKey(ctx, sqlc.GetRecipeImageKeyParams{ID: 1, OwnerSub: "alice"})
+			if err != nil || key.String != pancakesImage {
+				return fmt.Errorf("alice's own photo = %v, %v", key, err)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ReadTx(ctx, pool, RequestContext{UserID: "bob"}, func(q *sqlc.Queries) error {
+			// The handler always passes the caller's own sub...
+			for _, id := range []int64{1, 2} {
+				if _, err := q.GetRecipeImageKey(ctx, sqlc.GetRecipeImageKeyParams{ID: id, OwnerSub: "bob"}); !errors.Is(err, pgx.ErrNoRows) {
+					return fmt.Errorf("bob read alice's photo %d: err = %v", id, err)
+				}
+			}
+			// ...and RLS hides the private one even when asked for alice's.
+			if _, err := q.GetRecipeImageKey(ctx, sqlc.GetRecipeImageKeyParams{ID: 1, OwnerSub: "alice"}); !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("RLS let bob read alice's private photo: err = %v", err)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ReadTx(ctx, pool, RequestContext{}, func(q *sqlc.Queries) error {
+			if key, err := q.GetPublicRecipeImageKey(ctx, soupPublicID); err != nil || key.String != soupImage {
+				return fmt.Errorf("public photo = %v, %v", key, err)
+			}
+			if _, err := q.GetPublicRecipeImageKey(ctx, pancakesPublicID); !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("private recipe's photo: err = %v, want no rows", err)
 			}
 			return nil
 		})

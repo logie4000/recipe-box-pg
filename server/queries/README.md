@@ -14,6 +14,8 @@ Every file here is compiled by sqlc (`make gen`) against
   on RLS. `GetPublicRecipe` serves the no-login route, which looks recipes up by
   their random 12-character `public_id` (never the sequential `id`) and runs with no user,
   so the `recipes_public_read` policy only lets public rows through.
+  The two `...ImageKey` queries find the photo to serve for the same two
+  routes (`.../image`), with the same rules.
 - `TENANT_MODE=on`: after `bin/rails generate tenancy`, add
   `WHERE tenant_id = sqlc.arg(tenant_id)` to tenant-owned queries. RLS already
   enforces isolation; the filter keeps the intent visible and lets Postgres use
