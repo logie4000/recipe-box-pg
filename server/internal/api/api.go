@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -36,6 +37,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /api/v1/meta", s.meta)
+	mux.HandleFunc("GET /api/v1/shared/recipes/{token}", s.getSharedRecipe)
 
 	// Authenticated (+ tenant when TENANT_MODE=on)
 	protected := func(h http.HandlerFunc) http.Handler {
@@ -45,6 +47,8 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/notes", protected(s.listNotes))
 	mux.Handle("GET /api/v1/notes/{id}", protected(s.getNote))
 	mux.Handle("GET /api/v1/private-notes", protected(s.listPrivateNotes))
+	mux.Handle("GET /api/v1/recipes", protected(s.listRecipes))
+	mux.Handle("GET /api/v1/recipes/{id}", protected(s.getRecipe))
 
 	return httpx.Chain(mux,
 		httpx.Recover(s.Log),
@@ -141,6 +145,80 @@ func (s *Server) listPrivateNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// Recipes are owner-scoped twice: the queries filter on owner_sub and the
+// recipes_owner RLS policy hides other users' rows anyway. Someone else's id
+// is a 404.
+func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
+	limit := queryInt(r, "limit", 20, 1, 100)
+	offset := queryInt(r, "offset", 0, 0, 1_000_000)
+	owner := auth.UserFrom(r.Context()).Subject
+
+	var (
+		items []sqlc.ListRecipesRow
+		total int64
+	)
+	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		if items, err = q.ListRecipes(r.Context(), sqlc.ListRecipesParams{OwnerSub: owner, Limit: int32(limit), Offset: int32(offset)}); err != nil {
+			return err
+		}
+		total, err = q.CountRecipes(r.Context(), owner)
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total, "limit": limit, "offset": offset})
+}
+
+func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "id must be an integer")
+		return
+	}
+	var recipe sqlc.GetRecipeRow
+	err = db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		recipe, err = q.GetRecipe(r.Context(), sqlc.GetRecipeParams{ID: id, OwnerSub: auth.UserFrom(r.Context()).Subject})
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, recipe)
+}
+
+// shareTokenPattern matches Recipe.generate_share_token in the write-api
+// (32 random bytes, URL-safe base64, no padding).
+var shareTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
+
+// getSharedRecipe is public: the unguessable token in the URL is the
+// credential. Only app.share_token is set (no user), so the
+// recipes_shared_read RLS policy exposes that one row and nothing else.
+// Malformed, unknown and revoked tokens all get the same 404.
+func (s *Server) getSharedRecipe(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+	token := r.PathValue("token")
+	if !shareTokenPattern.MatchString(token) {
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	var recipe sqlc.GetSharedRecipeRow
+	err := db.ReadTx(r.Context(), s.Pool, db.RequestContext{ShareToken: token}, func(q *sqlc.Queries) error {
+		var err error
+		recipe, err = q.GetSharedRecipe(r.Context(), token)
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, recipe)
 }
 
 func requestContext(r *http.Request) db.RequestContext {

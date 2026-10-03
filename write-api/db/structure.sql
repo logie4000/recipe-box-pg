@@ -93,6 +93,44 @@ ALTER SEQUENCE public.private_notes_id_seq OWNED BY public.private_notes.id;
 
 
 --
+-- Name: recipes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.recipes (
+    id bigint NOT NULL,
+    owner_sub character varying NOT NULL,
+    title character varying NOT NULL,
+    ingredients text[] DEFAULT '{}'::text[] NOT NULL,
+    directions text[] DEFAULT '{}'::text[] NOT NULL,
+    image_key character varying,
+    share_token character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.recipes FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: recipes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.recipes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: recipes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.recipes_id_seq OWNED BY public.recipes.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -559,6 +597,13 @@ ALTER TABLE ONLY public.private_notes ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: recipes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recipes ALTER COLUMN id SET DEFAULT nextval('public.recipes_id_seq'::regclass);
+
+
+--
 -- Name: solid_queue_batch_executions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -671,6 +716,14 @@ ALTER TABLE ONLY public.notes
 
 ALTER TABLE ONLY public.private_notes
     ADD CONSTRAINT private_notes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: recipes recipes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.recipes
+    ADD CONSTRAINT recipes_pkey PRIMARY KEY (id);
 
 
 --
@@ -797,6 +850,20 @@ CREATE INDEX index_notes_on_created_at ON public.notes USING btree (created_at);
 --
 
 CREATE INDEX index_private_notes_on_owner_sub_and_created_at ON public.private_notes USING btree (owner_sub, created_at);
+
+
+--
+-- Name: index_recipes_on_owner_sub_and_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_recipes_on_owner_sub_and_created_at ON public.recipes USING btree (owner_sub, created_at);
+
+
+--
+-- Name: index_recipes_on_share_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_recipes_on_share_token ON public.recipes USING btree (share_token);
 
 
 --
@@ -1101,12 +1168,33 @@ CREATE POLICY private_notes_owner ON public.private_notes USING (((owner_sub)::t
 
 
 --
+-- Name: recipes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.recipes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: recipes recipes_owner; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY recipes_owner ON public.recipes USING (((owner_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text))) WITH CHECK (((owner_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text)));
+
+
+--
+-- Name: recipes recipes_shared_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY recipes_shared_read ON public.recipes FOR SELECT USING (((share_token)::text = NULLIF(current_setting('app.share_token'::text, true), ''::text)));
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261003150000'),
 ('20260929160004'),
 ('20260929160003'),
 ('20260929160002'),

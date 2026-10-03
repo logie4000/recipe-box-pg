@@ -8,6 +8,9 @@ Rails.application.routes.draw do
       namespace :v1 do
         resources :notes, only: %i[create update destroy]
         resources :private_notes, only: %i[create destroy]
+        resources :recipes, only: %i[create update destroy] do
+          resource :share, only: %i[create destroy], module: :recipes
+        end
       end
     end
   end

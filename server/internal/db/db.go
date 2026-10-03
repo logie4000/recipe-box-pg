@@ -32,13 +32,14 @@ func NewPool(ctx context.Context, databaseURL string, maxConns int32) (*pgxpool.
 
 // RequestContext is what row-level-security policies see.
 type RequestContext struct {
-	UserID   string // token sub -> app.user_id
-	TenantID string // TENANT_MODE=on -> app.tenant_id
+	UserID     string // token sub -> app.user_id
+	TenantID   string // TENANT_MODE=on -> app.tenant_id
+	ShareToken string // public share link -> app.share_token (recipes_shared_read)
 }
 
-// ReadTx runs fn in a read-only transaction with app.user_id / app.tenant_id
-// set (transaction-local, so nothing leaks to the next request on the same
-// pooled connection).
+// ReadTx runs fn in a read-only transaction with app.user_id, app.tenant_id
+// and app.share_token set (transaction-local, so nothing leaks to the next
+// request on the same pooled connection).
 func ReadTx(ctx context.Context, pool *pgxpool.Pool, rc RequestContext, fn func(q *sqlc.Queries) error) error {
 	tx, err := pool.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
@@ -47,8 +48,8 @@ func ReadTx(ctx context.Context, pool *pgxpool.Pool, rc RequestContext, fn func(
 	defer tx.Rollback(ctx) //nolint:errcheck // no-op after Commit
 
 	if _, err := tx.Exec(ctx,
-		"SELECT set_config('app.user_id', $1, true), set_config('app.tenant_id', $2, true)",
-		rc.UserID, rc.TenantID,
+		"SELECT set_config('app.user_id', $1, true), set_config('app.tenant_id', $2, true), set_config('app.share_token', $3, true)",
+		rc.UserID, rc.TenantID, rc.ShareToken,
 	); err != nil {
 		return fmt.Errorf("set request context: %w", err)
 	}
