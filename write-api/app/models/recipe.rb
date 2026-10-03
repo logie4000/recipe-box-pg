@@ -26,7 +26,14 @@ class Recipe < ApplicationRecord
   validates :title, presence: true, length: { maximum: 200 }
   validates :is_public, inclusion: { in: [ true, false ] }
   validates :public_id, format: { with: PUBLIC_ID_FORMAT }
+  validates :image_key, format: { with: ImageStore::KEY_FORMAT }, allow_nil: true
   validate :lists_within_limits
+
+  # The photo file goes once the change is committed: the old one when it is
+  # replaced or removed (Api::V1::RecipeImagesController), and the current one
+  # when the recipe is deleted.
+  after_update_commit -> { delete_image(image_key_before_last_save) }, if: :saved_change_to_image_key?
+  after_destroy_commit -> { delete_image(image_key) }
 
   def self.generate_public_id = SecureRandom.alphanumeric(PUBLIC_ID_LENGTH)
 
@@ -51,6 +58,10 @@ class Recipe < ApplicationRecord
   end
 
   private
+    def delete_image(key)
+      ImageStore.current.delete(key) if key
+    end
+
     # Strip whitespace and drop blank lines, so ["2 eggs", " "] stores ["2 eggs"].
     def tidy_lists
       self.ingredients = Array(ingredients).map { |s| s.to_s.strip }.compact_blank

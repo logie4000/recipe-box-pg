@@ -55,6 +55,18 @@ func (q *Queries) GetPublicRecipe(ctx context.Context, publicID string) (GetPubl
 	return i, err
 }
 
+const getPublicRecipeImageKey = `-- name: GetPublicRecipeImageKey :one
+SELECT image_key FROM recipes
+WHERE public_id = $1 AND is_public
+`
+
+func (q *Queries) GetPublicRecipeImageKey(ctx context.Context, publicID string) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getPublicRecipeImageKey, publicID)
+	var image_key pgtype.Text
+	err := row.Scan(&image_key)
+	return image_key, err
+}
+
 const getRecipe = `-- name: GetRecipe :one
 SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
@@ -93,6 +105,23 @@ func (q *Queries) GetRecipe(ctx context.Context, arg GetRecipeParams) (GetRecipe
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getRecipeImageKey = `-- name: GetRecipeImageKey :one
+SELECT image_key FROM recipes
+WHERE id = $1 AND owner_sub = $2
+`
+
+type GetRecipeImageKeyParams struct {
+	ID       int64  `json:"id"`
+	OwnerSub string `json:"owner_sub"`
+}
+
+func (q *Queries) GetRecipeImageKey(ctx context.Context, arg GetRecipeImageKeyParams) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getRecipeImageKey, arg.ID, arg.OwnerSub)
+	var image_key pgtype.Text
+	err := row.Scan(&image_key)
+	return image_key, err
 }
 
 const listRecipes = `-- name: ListRecipes :many

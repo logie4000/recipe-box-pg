@@ -12,6 +12,9 @@ Thumbs.db
 /server/bin/
 /server/tmp/
 
+# Recipe photos stored in development (IMAGE_STORAGE_DIR)
+/storage/
+
 # Backups / scratch
 /deploy/backups/
 *.dump

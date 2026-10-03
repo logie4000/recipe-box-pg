@@ -18,3 +18,11 @@ WHERE id = $1 AND owner_sub = $2;
 SELECT public_id, title, ingredients, directions, image_key, created_at, updated_at
 FROM recipes
 WHERE public_id = $1 AND is_public;
+
+-- name: GetRecipeImageKey :one
+SELECT image_key FROM recipes
+WHERE id = $1 AND owner_sub = $2;
+
+-- name: GetPublicRecipeImageKey :one
+SELECT image_key FROM recipes
+WHERE public_id = $1 AND is_public;

@@ -91,6 +91,10 @@ services:
       TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}
       SOLID_QUEUE_IN_PUMA: "1"
       RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
+      IMAGE_STORAGE_DIR: /srv/images
+    volumes:
+      # Recipe photos. The write-api stores them, the read-api serves them.
+      - images:/srv/images
     ports:
       - "127.0.0.1:${WRITE_API_PORT:-3000}:80"
     depends_on:
@@ -116,6 +120,9 @@ services:
       TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}
       MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
       APP_VERSION: ${APP_VERSION:-dev}
+      IMAGE_STORAGE_DIR: /srv/images
+    volumes:
+      - images:/srv/images:ro
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -124,3 +131,4 @@ services:
 
 volumes:
   pgdata:
+  images:

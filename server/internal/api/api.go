@@ -7,17 +7,20 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/logie4000/webapp-template/server/internal/auth"
 	"github.com/logie4000/webapp-template/server/internal/db"
 	"github.com/logie4000/webapp-template/server/internal/db/sqlc"
 	"github.com/logie4000/webapp-template/server/internal/httpx"
+	"github.com/logie4000/webapp-template/server/internal/storage"
 )
 
 type Server struct {
@@ -28,6 +31,7 @@ type Server struct {
 	MinClientVersion string
 	AppVersion       string
 	CORSOrigins      []string
+	Images           storage.Store
 }
 
 func (s *Server) Routes() http.Handler {
@@ -38,6 +42,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /api/v1/meta", s.meta)
 	mux.HandleFunc("GET /api/v1/public/recipes/{public_id}", s.getPublicRecipe)
+	mux.HandleFunc("GET /api/v1/public/recipes/{public_id}/image", s.getPublicRecipeImage)
 
 	// Authenticated (+ tenant when TENANT_MODE=on)
 	protected := func(h http.HandlerFunc) http.Handler {
@@ -49,6 +54,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/private-notes", protected(s.listPrivateNotes))
 	mux.Handle("GET /api/v1/recipes", protected(s.listRecipes))
 	mux.Handle("GET /api/v1/recipes/{id}", protected(s.getRecipe))
+	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
 
 	return httpx.Chain(mux,
 		httpx.Recover(s.Log),
@@ -219,6 +225,80 @@ func (s *Server) getPublicRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, recipe)
+}
+
+// getRecipeImage is the owner's photo of one of their recipes. Browsers can't
+// put a bearer token on an <img>, so the web app fetches it as a blob.
+func (s *Server) getRecipeImage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "bad_request", "id must be an integer")
+		return
+	}
+	var key pgtype.Text
+	err = db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		key, err = q.GetRecipeImageKey(r.Context(), sqlc.GetRecipeImageKeyParams{ID: id, OwnerSub: auth.UserFrom(r.Context()).Subject})
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "private, no-cache")
+	s.serveImage(w, r, key)
+}
+
+// getPublicRecipeImage is the photo on the shared page, with the same rules
+// as getPublicRecipe: no login, public recipes only, one 404 for everything
+// else. no-cache (not no-store) lets browsers keep it but ask again each time,
+// so making the recipe private hides the photo at once too.
+func (s *Server) getPublicRecipeImage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-cache")
+	publicID := r.PathValue("public_id")
+	if !publicIDPattern.MatchString(publicID) {
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	var key pgtype.Text
+	err := db.ReadTx(r.Context(), s.Pool, db.RequestContext{}, func(q *sqlc.Queries) error {
+		var err error
+		key, err = q.GetPublicRecipeImageKey(r.Context(), publicID)
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	s.serveImage(w, r, key)
+}
+
+// serveImage sends the stored photo. Keys are new for every upload, so the
+// key is the ETag and unchanged photos come back as 304s. The headers stop
+// browsers from treating the bytes as anything but an image.
+func (s *Server) serveImage(w http.ResponseWriter, r *http.Request, key pgtype.Text) {
+	if !key.Valid || s.Images == nil {
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	obj, err := s.Images.Open(r.Context(), key.String)
+	if errors.Is(err, storage.ErrNotFound) {
+		s.Log.Warn("image missing from storage", "key", key.String)
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	if err != nil {
+		s.Log.Error("image storage", "err", err)
+		httpx.Error(w, http.StatusInternalServerError, "internal", "storage error")
+		return
+	}
+	defer obj.Body.Close()
+
+	h := w.Header()
+	h.Set("Content-Type", storage.ContentType(key.String))
+	h.Set("ETag", `"`+path.Base(key.String)+`"`)
+	h.Set("X-Content-Type-Options", "nosniff")
+	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
+	http.ServeContent(w, r, "", obj.ModTime, obj.Body)
 }
 
 func requestContext(r *http.Request) db.RequestContext {

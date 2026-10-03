@@ -33,12 +33,13 @@ describe('App', () => {
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Sign in');
   });
 
-  it('shows the user and the notes link when signed in', async () => {
+  it('shows the user and the recipes link when signed in', async () => {
     authenticated.set(true);
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Alice');
+    expect(text).toContain('My recipes');
     expect(text).toContain('Notes');
   });
 });
