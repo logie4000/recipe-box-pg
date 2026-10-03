@@ -104,7 +104,7 @@ CREATE TABLE public.recipes (
     directions text[] DEFAULT '{}'::text[] NOT NULL,
     image_key character varying,
     is_public boolean DEFAULT false NOT NULL,
-    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
+    public_id character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );

@@ -12,7 +12,7 @@
 | `directions` | text[], default `{}` | ordered steps, same rules as `ingredients` |
 | `image_key` | varchar, null | Storage hook for the image drop zone, which comes later. The API doesn't let clients set it yet, so nobody can point it at someone else's object. |
 | `is_public` | boolean, not null, default `false` | Private unless the owner makes it public. |
-| `public_id` | uuid, not null, unique, default `gen_random_uuid()` | Random id for the public URL, separate from the table's sequential `id`. The database assigns it; clients can't set it. It doesn't change when the recipe is edited or made private and public again. |
+| `public_id` | varchar, not null, unique | 12 random letters and digits for the public URL (`SecureRandom.alphanumeric(12)`, e.g. `k7Xq2mP9vR4t`), separate from the table's sequential `id`. The model generates it on create; clients can't set it, and it never changes (`attr_readonly`), even when the recipe is edited or made private and public again. |
 
 ## Isolation (one owner per recipe)
 
@@ -37,17 +37,24 @@ Isolation is enforced in three places, so one forgotten filter does not leak dat
   owner gets `public_id` in every recipe response, to build the link. The
   public response has no `id` and no `owner_sub`, and is sent with
   `Cache-Control: no-store`. Private, missing and deleted recipes, and
-  anything that isn't a UUID (such as a sequential id), all return the same 404.
+  anything that isn't a 12-character alphanumeric code (such as a sequential
+  id), all return the same 404.
 - How it works: the `recipes_public_read` policy is `FOR SELECT USING (is_public)`.
   It only adds read access. Updates and deletes still need `recipes_owner`, so
   a public recipe stays read-only for everyone except its owner.
 - Public recipes don't show up in other users' own lists (`GET /api/v1/recipes`
   filters on owner), and they don't show up in the owner-only
   `GET /api/v1/recipes/:id` for anyone else.
-- The public URL uses `public_id`, a version 4 UUID (122 random bits), so
-  nobody can find public recipes by counting through sequential ids. There is
-  no "list all public recipes" endpoint, so in practice a public recipe can
-  only be reached by someone who has its link.
+- The public URL uses `public_id`, about 71 random bits (62^12 possible
+  codes), so nobody can find public recipes by counting through sequential
+  ids. With 100,000 public recipes, guessing 1,000 codes a second would take
+  about 20,000 years to hit one. There is no "list all public recipes"
+  endpoint, so in practice a public recipe can only be reached by someone who
+  has its link.
+- Collisions: the unique index is the check. A uniqueness validation can't
+  do it, because RLS hides other users' rows from the query. On the rare
+  collision, `Recipe#save_with_unique_public_id` draws a new code inside a
+  savepoint and retries, up to 5 times.
 
 ## Endpoints
 
@@ -72,10 +79,11 @@ family accounts get it (Keycloak default roles).
   users on every write, RLS checked directly in the database, private by
   default, public reads without login by `public_id`, public stays read-only,
   switching back to private hides the recipe again, and `public_id` is random,
-  unique, can't be set by clients and doesn't change.
+  unique, can't be set by clients, doesn't change, and is redrawn on a
+  collision (with a cap on retries).
 - `server/internal/api/api_test.go`: the recipe routes need a token; the
   public route doesn't, only answers GET, and returns 404 for anything that
-  isn't a UUID.
+  isn't 12 letters or digits.
 - `server/internal/db/db_integration_test.go`: as `app_reader` against the
   real schema, covering per-owner listing, RLS when a query asks for another
   owner's rows, and public versus private reads without a user

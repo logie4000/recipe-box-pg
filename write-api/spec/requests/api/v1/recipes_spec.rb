@@ -14,7 +14,7 @@ RSpec.describe "/api/v1/recipes" do
     end
   end
 
-  UUID_FORMAT = /\A\h{8}-\h{4}-4\h{3}-[89ab]\h{3}-\h{12}\z/
+  PUBLIC_ID_FORMAT = /\A[A-Za-z0-9]{12}\z/
 
   def as_owner(sub, &block) = DbContext.with(user_id: sub, &block)
 
@@ -32,26 +32,46 @@ RSpec.describe "/api/v1/recipes" do
       expect(body).to include("title" => "Soup", "ingredients" => [ "1 onion", "2 carrots" ], "directions" => [ "Chop" ],
                               "is_public" => false, "image_key" => nil)
       expect(body).not_to have_key("owner_sub")
-      expect(body["public_id"]).to match(UUID_FORMAT)
+      expect(body["public_id"]).to match(PUBLIC_ID_FORMAT)
       expect(as_owner("alice-sub") { Recipe.find(body["id"]).owner_sub }).to eq("alice-sub")
     end
 
     it "ignores an owner_sub, image_key or public_id in the body" do
-      chosen = "00000000-0000-4000-8000-000000000000"
+      chosen = "ChosenByMe12"
       post "/api/v1/recipes", headers: alice, as: :json,
            params: { recipe: { title: "Soup", owner_sub: "bob-sub", image_key: "someone/else.jpg", public_id: chosen } }
 
       expect(response).to have_http_status(:created)
       recipe = as_owner("alice-sub") { Recipe.find(response.parsed_body["id"]) }
       expect([ recipe.owner_sub, recipe.image_key ]).to eq([ "alice-sub", nil ])
-      expect(recipe.public_id).to match(UUID_FORMAT)
+      expect(recipe.public_id).to match(PUBLIC_ID_FORMAT)
       expect(recipe.public_id).not_to eq(chosen)
     end
 
     it "gives every recipe its own random public_id" do
       ids = Array.new(3) { create_recipe("alice-sub").public_id }
       expect(ids.uniq.size).to eq(3)
-      expect(ids).to all(match(UUID_FORMAT))
+      expect(ids).to all(match(PUBLIC_ID_FORMAT))
+    end
+
+    it "draws a new public_id when the random one is already taken, even by a row RLS hides" do
+      create_recipe("bob-sub", public_id: "TakenTaken12")
+      allow(Recipe).to receive(:generate_public_id).and_return("TakenTaken12", "FreshFresh12")
+
+      post "/api/v1/recipes", headers: alice, as: :json, params: { recipe: { title: "Soup" } }
+
+      expect(response).to have_http_status(:created)
+      expect(response.parsed_body["recipe"]["public_id"]).to eq("FreshFresh12")
+      expect(as_owner("alice-sub") { Recipe.pluck(:public_id) }).to eq([ "FreshFresh12" ])
+    end
+
+    it "gives up after a few collisions instead of looping" do
+      create_recipe("bob-sub", public_id: "TakenTaken12")
+      allow(Recipe).to receive(:generate_public_id).and_return("TakenTaken12")
+
+      recipe = Recipe.new(owner_sub: "alice-sub", title: "Soup")
+      expect { as_owner("alice-sub") { recipe.save_with_unique_public_id } }.to raise_error(ActiveRecord::RecordNotUnique)
+      expect(Recipe).to have_received(:generate_public_id).exactly(Recipe::PUBLIC_ID_ATTEMPTS).times
     end
 
     it "rejects a missing title (422) and a missing body (400)" do

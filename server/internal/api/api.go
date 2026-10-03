@@ -7,11 +7,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/logie4000/webapp-template/server/internal/auth"
@@ -192,15 +192,19 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, recipe)
 }
 
+// publicIDPattern matches Recipe.generate_public_id in the write-api
+// (SecureRandom.alphanumeric(12)).
+var publicIDPattern = regexp.MustCompile(`^[A-Za-z0-9]{12}$`)
+
 // getPublicRecipe needs no login. It looks recipes up by public_id, a random
-// UUID, never the sequential id, so public recipes can't be found by
-// counting. It runs with no user, so RLS only lets is_public rows through
+// 12-character code, never the sequential id, so public recipes can't be
+// found by counting. It runs with no user, so RLS only lets is_public rows through
 // (recipes_public_read), and the query asks for that explicitly too.
-// Malformed ids and private, missing or deleted recipes all get the same 404.
+// Malformed codes and private, missing or deleted recipes all get the same 404.
 func (s *Server) getPublicRecipe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	var publicID pgtype.UUID
-	if err := publicID.Scan(r.PathValue("public_id")); err != nil {
+	publicID := r.PathValue("public_id")
+	if !publicIDPattern.MatchString(publicID) {
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 		return
 	}

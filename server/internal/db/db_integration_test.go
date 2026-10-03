@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -129,19 +128,10 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 }
 
 const (
-	pancakesPublicID = "6f1d2c3b-0a4e-4b5f-9c6d-7e8f9a0b1c2d"
-	soupPublicID     = "1b2c3d4e-5f60-4718-89ab-cdef01234567"
-	chiliPublicID    = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+	pancakesPublicID = "Pancakes0001"
+	soupPublicID     = "SoupSoup0002"
+	chiliPublicID    = "ChiliChili03"
 )
-
-func mustUUID(t *testing.T, s string) pgtype.UUID {
-	t.Helper()
-	var u pgtype.UUID
-	if err := u.Scan(s); err != nil {
-		t.Fatal(err)
-	}
-	return u
-}
 
 func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 	t.Run("recipes: each owner sees only their own", func(t *testing.T) {
@@ -184,15 +174,15 @@ func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 
 	t.Run("recipes: a public recipe can be read without a user, private ones cannot", func(t *testing.T) {
 		err := ReadTx(ctx, pool, RequestContext{}, func(q *sqlc.Queries) error {
-			r, err := q.GetPublicRecipe(ctx, mustUUID(t, soupPublicID))
+			r, err := q.GetPublicRecipe(ctx, soupPublicID)
 			if err != nil {
 				return err
 			}
 			if r.Title != "Soup" {
 				return fmt.Errorf("public recipe = %+v", r)
 			}
-			for _, id := range []string{pancakesPublicID, chiliPublicID, "00000000-0000-4000-8000-000000000000"} {
-				if _, err := q.GetPublicRecipe(ctx, mustUUID(t, id)); !errors.Is(err, pgx.ErrNoRows) {
+			for _, id := range []string{pancakesPublicID, chiliPublicID, "NoSuchRecipe"} {
+				if _, err := q.GetPublicRecipe(ctx, id); !errors.Is(err, pgx.ErrNoRows) {
 					return fmt.Errorf("recipe %s: err = %v, want no rows", id, err)
 				}
 			}

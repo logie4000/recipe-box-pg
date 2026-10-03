@@ -55,11 +55,11 @@ func TestProtectedRoutesNeedToken(t *testing.T) {
 	}
 }
 
-// The public route needs no token. Anything that isn't a UUID, including a
-// sequential table id, is a 404 before any database call (the test server
+// The public route needs no token. Anything that isn't a 12-character
+// alphanumeric code, including a sequential table id, is a 404 before any database call (the test server
 // has no pool), the same answer as a private recipe.
 func TestPublicRecipeNeedsNoTokenAndIsReadOnly(t *testing.T) {
-	for _, id := range []string{"abc", "1", "42", "00000000-0000-4000-8000-00000000000"} {
+	for _, id := range []string{"abc", "1", "42", "k7Xq2mP9vR4", "k7Xq2mP9vR4tZ", "k7Xq2mP9-R4t", "00000000-0000-4000-8000-000000000000"} {
 		rec := httptest.NewRecorder()
 		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/public/recipes/"+id, nil))
 		if rec.Code != http.StatusNotFound {
@@ -71,7 +71,7 @@ func TestPublicRecipeNeedsNoTokenAndIsReadOnly(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/public/recipes/00000000-0000-4000-8000-000000000001", nil))
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/public/recipes/k7Xq2mP9vR4t", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("DELETE public recipe = %d, want 405", rec.Code)
 	}

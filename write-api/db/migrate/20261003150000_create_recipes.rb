@@ -1,9 +1,9 @@
 # Recipes: one owner each, isolated by Postgres row-level security (the same
 # pattern as private_notes). A recipe is private by default; the owner can
 # make it public, and then anyone with its URL can read it without login.
-# The public URL uses public_id, a random UUID (gen_random_uuid(), 122 random
-# bits), never the sequential id, so public recipes can't be found by
-# counting.
+# The public URL uses public_id, a 12-character random alphanumeric code
+# (about 71 random bits) that the Recipe model generates, never the
+# sequential id, so public recipes can't be found by counting.
 #
 #   recipes_owner        owner sees and changes only their own rows
 #   recipes_public_read  SELECT only: anyone may read rows with is_public.
@@ -21,7 +21,7 @@ class CreateRecipes < ActiveRecord::Migration[8.1]
       t.text :directions, array: true, null: false, default: []
       t.string :image_key
       t.boolean :is_public, null: false, default: false
-      t.uuid :public_id, null: false, default: -> { "gen_random_uuid()" }
+      t.string :public_id, null: false
       t.timestamps
     end
     add_index :recipes, %i[owner_sub created_at]

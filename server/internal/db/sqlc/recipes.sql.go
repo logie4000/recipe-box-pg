@@ -31,7 +31,7 @@ WHERE public_id = $1 AND is_public
 `
 
 type GetPublicRecipeRow struct {
-	PublicID    pgtype.UUID `json:"public_id"`
+	PublicID    string      `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
@@ -40,7 +40,7 @@ type GetPublicRecipeRow struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
-func (q *Queries) GetPublicRecipe(ctx context.Context, publicID pgtype.UUID) (GetPublicRecipeRow, error) {
+func (q *Queries) GetPublicRecipe(ctx context.Context, publicID string) (GetPublicRecipeRow, error) {
 	row := q.db.QueryRow(ctx, getPublicRecipe, publicID)
 	var i GetPublicRecipeRow
 	err := row.Scan(
@@ -68,7 +68,7 @@ type GetRecipeParams struct {
 
 type GetRecipeRow struct {
 	ID          int64       `json:"id"`
-	PublicID    pgtype.UUID `json:"public_id"`
+	PublicID    string      `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
@@ -111,7 +111,7 @@ type ListRecipesParams struct {
 
 type ListRecipesRow struct {
 	ID          int64       `json:"id"`
-	PublicID    pgtype.UUID `json:"public_id"`
+	PublicID    string      `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
