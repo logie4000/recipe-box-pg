@@ -1,0 +1,126 @@
+# Local development and the base for production (docker-compose.prod.yml).
+#
+#   make up                     postgres + keycloak (the APIs run on the host)
+#   docker compose --profile apps up -d   also run write-api and read-api in containers
+#
+# Every published port is bound to 127.0.0.1; nginx (production) or the
+# Angular dev server (development) is the only way in from outside.
+name: ${COMPOSE_PROJECT_NAME:-webapp}
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION:-16.10}
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-60}"]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set POSTGRES_SUPERUSER_PASSWORD in .env}
+      # read by postgres/init/01-roles.sh on first start
+      APP_DB_NAME: ${APP_DB_NAME:-app}
+      APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD:?set APP_OWNER_PASSWORD in .env}
+      APP_PLATFORM_PASSWORD: ${APP_PLATFORM_PASSWORD:?set APP_PLATFORM_PASSWORD in .env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?set KEYCLOAK_DB_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:${KEYCLOAK_VERSION:-26.3}
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?set KC_BOOTSTRAP_ADMIN_PASSWORD in .env}
+      KC_HEALTH_ENABLED: "true"
+      # ${...} placeholders in keycloak/realm.json are filled from these
+      APP_DOMAIN: ${APP_DOMAIN:-example.com}
+      OIDC_ADMIN_CLIENT_SECRET: ${OIDC_ADMIN_CLIENT_SECRET:?set OIDC_ADMIN_CLIENT_SECRET in .env}
+      KC_GOOGLE_CLIENT_ID: ${KC_GOOGLE_CLIENT_ID:-}
+      KC_GOOGLE_CLIENT_SECRET: ${KC_GOOGLE_CLIENT_SECRET:-}
+    volumes:
+      - ./keycloak/realm.json:/opt/keycloak/data/import/realm.json:ro
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8081}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # no curl in the image; health lives on the management port 9000
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  write-api:
+    profiles: ["apps"]
+    build: ../write-api
+    image: ${WRITE_API_IMAGE:-webapp/write-api:local}
+    restart: unless-stopped
+    environment:
+      RAILS_ENV: production
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      APP_DB_NAME: ${APP_DB_NAME:-app}
+      APP_WRITER_PASSWORD: ${APP_WRITER_PASSWORD}
+      APP_READER_PASSWORD: ${APP_READER_PASSWORD}
+      # used only by `bin/rails db:migrate` (deploy step), never by the server
+      APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
+      OIDC_ADMIN_CLIENT_ID: ${OIDC_ADMIN_CLIENT_ID:-rails-admin}
+      OIDC_ADMIN_CLIENT_SECRET: ${OIDC_ADMIN_CLIENT_SECRET}
+      ADMIN_REDIRECT_URI: ${ADMIN_REDIRECT_URI}
+      ADMIN_POST_LOGOUT_URI: ${ADMIN_POST_LOGOUT_URI}
+      APP_HOST: app.${APP_DOMAIN:-example.com}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      TENANT_MODE: ${TENANT_MODE:-off}
+      TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}
+      SOLID_QUEUE_IN_PUMA: "1"
+      RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
+    ports:
+      - "127.0.0.1:${WRITE_API_PORT:-3000}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  read-api:
+    profiles: ["apps"]
+    build: ../server
+    image: ${READ_API_IMAGE:-webapp/read-api:local}
+    restart: unless-stopped
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      APP_DB_NAME: ${APP_DB_NAME:-app}
+      APP_READER_PASSWORD: ${APP_READER_PASSWORD}
+      READ_API_DB_MAX_CONNS: ${READ_API_DB_MAX_CONNS:-10}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      TENANT_MODE: ${TENANT_MODE:-off}
+      TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}
+      MIN_SUPPORTED_CLIENT_VERSION: ${MIN_SUPPORTED_CLIENT_VERSION:-0.0.0}
+      APP_VERSION: ${APP_VERSION:-dev}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

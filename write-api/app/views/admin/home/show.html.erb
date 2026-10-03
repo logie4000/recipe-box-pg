@@ -1,0 +1,10 @@
+<h1>Admin</h1>
+<p>You are signed in. No admin UI ships with the template; this page proves the login hook works.</p>
+<dl>
+  <dt>Name</dt><dd><%= current_admin["name"] %></dd>
+  <dt>Email</dt><dd><%= current_admin["email"] %></dd>
+  <dt>Subject (sub)</dt><dd><code><%= current_admin["sub"] %></code></dd>
+  <dt>Roles</dt><dd><%= Array(current_admin["roles"]).join(", ") %></dd>
+  <dt>Session expires</dt><dd><%= Time.at(current_admin["expires_at"]).utc.iso8601 %></dd>
+</dl>
+<%= button_to "Sign out", admin_logout_path, method: :delete %>

@@ -1,0 +1,8 @@
+# Keep LF everywhere: files are mounted into Linux containers and run by bash.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.ico binary
+*.jpg binary

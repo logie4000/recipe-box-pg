@@ -1,0 +1,56 @@
+# Two connections to the SAME database, with different Postgres roles:
+#
+#   primary     runtime connection, role app_writer (DML only, no DDL).
+#               database_tasks: false => never used by db:* tasks.
+#   migrations  role app_owner, owns the schema. Only `bin/rails db:migrate`
+#               (and friends) use it. Dumps db/structure.sql.
+#
+# Roles are created by deploy/postgres/init (app_owner) and by the first
+# migration (app_reader, app_writer, app_platform).
+#
+# Values come from the repo-root .env in development/test (see
+# config/application.rb) and from the environment in production.
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  host: <%= ENV.fetch("DB_HOST", "localhost") %>
+  port: <%= ENV.fetch("DB_PORT", 5432) %>
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+writer: &writer
+  <<: *default
+  username: <%= ENV.fetch("APP_WRITER_USER", "app_writer") %>
+  password: <%= ENV["APP_WRITER_PASSWORD"] %>
+  database_tasks: false
+
+owner: &owner
+  <<: *default
+  username: <%= ENV.fetch("APP_OWNER_USER", "app_owner") %>
+  password: <%= ENV["APP_OWNER_PASSWORD"] %>
+  migrations_paths: db/migrate
+  schema_dump: structure.sql
+
+development:
+  primary:
+    <<: *writer
+    database: <%= ENV.fetch("APP_DB_NAME", "app") %>
+  migrations:
+    <<: *owner
+    database: <%= ENV.fetch("APP_DB_NAME", "app") %>
+
+# Tests run as the owner against a throwaway database loaded from
+# db/structure.sql (which is dumped without GRANTs, so the writer role would
+# see nothing). Role/grant behaviour is covered by spec/db/roles_spec.rb.
+test:
+  primary:
+    <<: *owner
+    database: <%= ENV.fetch("APP_TEST_DB_NAME", "app_test") %>
+
+production:
+  primary:
+    <<: *writer
+    database: <%= ENV.fetch("APP_DB_NAME", "app") %>
+    max_connections: <%= ENV.fetch("DB_POOL") { ENV.fetch("RAILS_MAX_THREADS", 5).to_i + 3 } %>
+  migrations:
+    <<: *owner
+    database: <%= ENV.fetch("APP_DB_NAME", "app") %>

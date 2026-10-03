@@ -1,0 +1,3 @@
+<h1>Admin sign-in</h1>
+<p>Sign in with an account that has the <code><%= Rails.configuration.x.oidc.admin_role %></code> role.</p>
+<%= button_to "Sign in with Keycloak", "/admin/auth/keycloak", method: :post, data: { turbo: false } %>

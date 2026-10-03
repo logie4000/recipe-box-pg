@@ -1,0 +1,17 @@
+# Local environment
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+
+# Go
+/server/bin/
+/server/tmp/
+
+# Backups / scratch
+/deploy/backups/
+*.dump

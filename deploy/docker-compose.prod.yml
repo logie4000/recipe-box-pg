@@ -1,0 +1,78 @@
+# Production overlay for one EC2 instance (t3.medium+):
+#
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml --env-file .env up -d
+#
+# (deploy/scripts/deploy.sh does this, running migrations first.)
+# nginx on the host terminates TLS, serves the Angular build and proxies to
+# the 127.0.0.1 ports below; see deploy/nginx/app.conf.template.
+services:
+  postgres:
+    volumes:
+      # dedicated EBS volume mounted at /srv/pgdata (daily snapshots via DLM)
+      - ${PGDATA_DIR:-/srv/pgdata}:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  keycloak:
+    build:
+      context: ./keycloak
+      args:
+        KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.3}
+    image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-keycloak:${IMAGE_TAG:-latest}
+    command: ["start", "--optimized", "--import-realm"]
+    volumes: !reset []
+    environment:
+      KC_HOSTNAME: https://auth.${APP_DOMAIN}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  write-api:
+    profiles: !reset []
+    image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-write-api:${IMAGE_TAG:-latest}
+    environment:
+      OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
+      ADMIN_REDIRECT_URI: https://app.${APP_DOMAIN}/admin/auth/keycloak/callback
+      ADMIN_POST_LOGOUT_URI: https://app.${APP_DOMAIN}/admin/login
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  read-api:
+    profiles: !reset []
+    image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-read-api:${IMAGE_TAG:-latest}
+    environment:
+      OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
+      LOG_FORMAT: json
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  # Nightly pg_dump -Fc of each database to S3 (instance role needs s3:PutObject).
+  backup:
+    build: ./backup
+    image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-backup:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+      BACKUP_DATABASES: ${APP_DB_NAME:-app} keycloak
+      BACKUP_S3_URI: ${BACKUP_S3_URI:?set BACKUP_S3_URI in .env}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-3}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256m

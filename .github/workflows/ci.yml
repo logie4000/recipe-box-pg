@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  write-api:
+    name: write-api (RSpec, RuboCop, schema)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      APP_DB_NAME: app
+      APP_TEST_DB_NAME: app_test
+      APP_OWNER_PASSWORD: owner-ci
+      APP_WRITER_PASSWORD: writer-ci
+      APP_READER_PASSWORD: reader-ci
+      APP_PLATFORM_PASSWORD: platform-ci
+      KEYCLOAK_DB_PASSWORD: keycloak-ci
+      PG_TOOLS_VIA_DOCKER: "0"
+    defaults:
+      run:
+        working-directory: write-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Postgres client 16 (pg_dump must match the server major)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-16
+          echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          working-directory: write-api
+          bundler-cache: true
+
+      - name: Create roles and databases (same script docker compose runs)
+        env:
+          PGHOST: localhost
+          PGPASSWORD: postgres
+          POSTGRES_USER: postgres
+        run: bash ../deploy/postgres/init/01-roles.sh
+
+      - name: Migrate from scratch and check db/structure.sql is committed
+        run: |
+          bin/rails db:migrate
+          git diff --exit-code db/structure.sql || {
+            echo "::error::db/structure.sql is stale: run 'make migrate' and commit it"; exit 1; }
+
+      - name: Verify role privileges
+        run: bash ../deploy/postgres/verify-roles.sh
+
+      - name: Seed (as app_writer)
+        run: bin/rails db:seed
+
+      - name: RuboCop
+        run: bin/rubocop
+
+      - name: RSpec
+        env:
+          RAILS_ENV: test
+        run: |
+          bin/rails db:create db:schema:load
+          bundle exec rspec
+
+      - name: Upload structure.sql (handy when it is stale)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structure.sql
+          path: write-api/db/structure.sql
+
+  read-api:
+    name: read-api (go vet/test, sqlc diff)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+
+      - uses: sqlc-dev/setup-sqlc@v4
+        with:
+          sqlc-version: "1.30.0"
+
+      - name: Generated code matches queries + structure.sql
+        run: sqlc diff
+
+      - name: Queries are SELECT only
+        run: |
+          if grep -niE '^[^-]*\b(insert|update|delete|merge|truncate|create|alter|drop|grant|revoke|copy)\b' queries/*.sql; then
+            echo "::error::server/queries must contain SELECT statements only"; exit 1
+          fi
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test (includes testcontainers Postgres test)
+        run: go test -race ./...
+
+  web:
+    name: web (ng lint/test/build)
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # Use the npm that wrote package-lock.json (package.json "packageManager").
+      # Node 22 bundles npm 10, which rejects npm 11 lockfiles (optional peer deps).
+      - name: npm version from packageManager
+        run: npm install -g "$(node -p "require('./package.json').packageManager")"
+
+      - run: npm ci
+      - run: npx ng lint
+      - run: npx ng test --watch=false
+      - run: npx ng build

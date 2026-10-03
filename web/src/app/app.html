@@ -1,0 +1,17 @@
+<nav class="topbar">
+  <a routerLink="/" class="brand">App</a>
+  @if (auth.isAuthenticated()) {
+    <a routerLink="/notes">Notes</a>
+  }
+  <span class="spacer"></span>
+  @if (auth.isAuthenticated()) {
+    <span class="muted">{{ auth.displayName() }}</span>
+    <button type="button" (click)="auth.logout()">Sign out</button>
+  } @else {
+    <button type="button" (click)="auth.login()">Sign in</button>
+  }
+</nav>
+
+<main>
+  <router-outlet />
+</main>

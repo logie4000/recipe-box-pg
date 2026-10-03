@@ -1,0 +1,8 @@
+#!/bin/bash -e
+
+# Migrations are NOT run here: the runtime role (app_writer) cannot change the
+# schema. Deploys run them first as app_owner:
+#   docker compose run --rm write-api ./bin/rails db:migrate
+# (see deploy/scripts/deploy.sh).
+
+exec "${@}"
