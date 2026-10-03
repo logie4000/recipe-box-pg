@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -37,7 +36,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /api/v1/meta", s.meta)
-	mux.HandleFunc("GET /api/v1/shared/recipes/{token}", s.getSharedRecipe)
+	mux.HandleFunc("GET /api/v1/public/recipes/{id}", s.getPublicRecipe)
 
 	// Authenticated (+ tenant when TENANT_MODE=on)
 	protected := func(h http.HandlerFunc) http.Handler {
@@ -147,9 +146,9 @@ func (s *Server) listPrivateNotes(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// Recipes are owner-scoped twice: the queries filter on owner_sub and the
-// recipes_owner RLS policy hides other users' rows anyway. Someone else's id
-// is a 404.
+// The caller's own collection: the queries filter on owner_sub, and RLS hides
+// other users' private rows anyway. Someone else's id is a 404 here, even when
+// that recipe is public (public reads use /api/v1/public/recipes/{id}).
 func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 20, 1, 100)
 	offset := queryInt(r, "offset", 0, 0, 1_000_000)
@@ -192,26 +191,20 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, recipe)
 }
 
-// shareTokenPattern matches Recipe.generate_share_token in the write-api
-// (32 random bytes, URL-safe base64, no padding).
-var shareTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
-
-// getSharedRecipe is public: the unguessable token in the URL is the
-// credential. Only app.share_token is set (no user), so the
-// recipes_shared_read RLS policy exposes that one row and nothing else.
-// Malformed, unknown and revoked tokens all get the same 404.
-func (s *Server) getSharedRecipe(w http.ResponseWriter, r *http.Request) {
+// getPublicRecipe needs no login: it runs with no user, so the only rows
+// RLS lets through are those with is_public (recipes_public_read), and the
+// query asks for that explicitly too. Private, missing and deleted recipes all
+// get the same 404.
+func (s *Server) getPublicRecipe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Referrer-Policy", "no-referrer")
-	token := r.PathValue("token")
-	if !shareTokenPattern.MatchString(token) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 		return
 	}
-	var recipe sqlc.GetSharedRecipeRow
-	err := db.ReadTx(r.Context(), s.Pool, db.RequestContext{ShareToken: token}, func(q *sqlc.Queries) error {
-		var err error
-		recipe, err = q.GetSharedRecipe(r.Context(), token)
+	var recipe sqlc.GetPublicRecipeRow
+	err = db.ReadTx(r.Context(), s.Pool, db.RequestContext{}, func(q *sqlc.Queries) error {
+		recipe, err = q.GetPublicRecipe(r.Context(), id)
 		return err
 	})
 	if err != nil {

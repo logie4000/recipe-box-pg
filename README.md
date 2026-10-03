@@ -32,7 +32,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `write-api/` | Rails 8 API app. JWT concern, Pundit policies, migrations, `db/structure.sql`, seeds, admin login hook. See `write-api/README.md`. |
 | `deploy/` | `docker-compose.yml` (dev) + `docker-compose.prod.yml` (EC2), Postgres init, `keycloak/realm.json`, nginx site template, backup container, deploy/restore scripts. |
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
-| `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), share-by-URL tokens, endpoints. |
+| `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, endpoints. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
 

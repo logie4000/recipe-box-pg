@@ -1,8 +1,9 @@
 require "rails_helper"
 
-# Owner isolation and share links. The test database role owns the table and
-# recipes uses FORCE ROW LEVEL SECURITY, so the RLS policies apply here too:
-# rows can only be created or read with app.user_id (or app.share_token) set.
+# Owner isolation and public/private. The test database role owns the table
+# and recipes uses FORCE ROW LEVEL SECURITY, so the RLS policies apply here
+# too: rows can only be created or changed with the owner's app.user_id set,
+# and read by others only when is_public.
 RSpec.describe "/api/v1/recipes" do
   let(:alice) { auth_headers(sub: "alice-sub") }
   let(:bob) { auth_headers(sub: "bob-sub") }
@@ -15,15 +16,8 @@ RSpec.describe "/api/v1/recipes" do
 
   def as_owner(sub, &block) = DbContext.with(user_id: sub, &block)
 
-  # What the read-api's public share route does: no user, only the token.
-  def as_share_viewer(token)
-    ActiveRecord::Base.transaction do
-      ActiveRecord::Base.connection.select_all(ActiveRecord::Base.sanitize_sql_array([
-        "SELECT set_config('app.user_id', '', true), set_config('app.share_token', ?, true)", token.to_s
-      ]))
-      yield
-    end
-  end
+  # What the read-api's public route does: no user at all.
+  def as_anonymous(&block) = DbContext.with(user_id: nil, &block)
 
   describe "create" do
     it "stores the recipe for the caller, tidying the lists" do
@@ -34,7 +28,7 @@ RSpec.describe "/api/v1/recipes" do
       expect(response).to have_http_status(:created)
       body = response.parsed_body["recipe"]
       expect(body).to include("title" => "Soup", "ingredients" => [ "1 onion", "2 carrots" ], "directions" => [ "Chop" ],
-                              "share_token" => nil, "image_key" => nil)
+                              "is_public" => false, "image_key" => nil)
       expect(body).not_to have_key("owner_sub")
       expect(as_owner("alice-sub") { Recipe.find(body["id"]).owner_sub }).to eq("alice-sub")
     end
@@ -84,14 +78,11 @@ RSpec.describe "/api/v1/recipes" do
       delete "/api/v1/recipes/#{recipe.id}", headers: bob, as: :json
       expect(response).to have_http_status(:not_found)
 
-      post "/api/v1/recipes/#{recipe.id}/share", headers: bob, as: :json
-      expect(response).to have_http_status(:not_found)
-
-      delete "/api/v1/recipes/#{recipe.id}/share", headers: bob, as: :json
+      patch "/api/v1/recipes/#{recipe.id}", headers: bob, as: :json, params: { recipe: { is_public: true } }
       expect(response).to have_http_status(:not_found)
 
       fresh = as_owner("alice-sub") { Recipe.find(recipe.id) }
-      expect([ fresh.title, fresh.share_token ]).to eq([ "Pancakes", nil ])
+      expect([ fresh.title, fresh.is_public ]).to eq([ "Pancakes", false ])
     end
 
     it "hides other users' rows in the database itself (RLS), not just in the controller" do
@@ -112,59 +103,59 @@ RSpec.describe "/api/v1/recipes" do
     end
   end
 
-  describe "share links" do
+  describe "public and private" do
     let!(:recipe) { create_recipe("alice-sub") }
-    let!(:other) { create_recipe("alice-sub", title: "Not shared") }
+    let!(:other) { create_recipe("alice-sub", title: "Still private") }
 
-    def share!
-      post "/api/v1/recipes/#{recipe.id}/share", headers: alice, as: :json
-      expect(response).to have_http_status(:created)
-      response.parsed_body["share_token"]
+    def make_public!(value = true)
+      patch "/api/v1/recipes/#{recipe.id}", headers: alice, as: :json, params: { recipe: { is_public: value } }
+      expect(response).to have_http_status(:ok)
+      expect(response.parsed_body["recipe"]["is_public"]).to be(value)
     end
 
-    it "creates an unguessable token that reads exactly that recipe without login" do
-      token = share!
-      expect(token).to match(/\A[A-Za-z0-9_-]{43}\z/)
-
-      expect(as_share_viewer(token) { Recipe.pluck(:id) }).to eq([ recipe.id ])
-      expect(as_share_viewer("not-the-token") { Recipe.count }).to eq(0)
-      expect(as_share_viewer("") { Recipe.count }).to eq(0)
+    it "is private by default: no one else can read it, signed in or not" do
+      expect(as_anonymous { Recipe.count }).to eq(0)
+      expect(as_owner("bob-sub") { Recipe.count }).to eq(0)
     end
 
-    it "is read-only: the token does not allow changes" do
-      token = share!
+    it "once public, can be read without login, and only that recipe" do
+      make_public!
 
-      expect(as_share_viewer(token) { Recipe.where(id: recipe.id).update_all(title: "Defaced") }).to eq(0)
-      expect(as_share_viewer(token) { Recipe.where(id: recipe.id).delete_all }).to eq(0)
+      expect(as_anonymous { Recipe.pluck(:id) }).to eq([ recipe.id ])
+      expect(as_owner("bob-sub") { Recipe.pluck(:id) }).to eq([ recipe.id ])
+    end
+
+    it "stays read-only for everyone but the owner" do
+      make_public!
+
+      expect(as_anonymous { Recipe.where(id: recipe.id).update_all(title: "Defaced") }).to eq(0)
+      expect(as_owner("bob-sub") { Recipe.where(id: recipe.id).update_all(title: "Defaced") }).to eq(0)
+      expect(as_owner("bob-sub") { Recipe.where(id: recipe.id).delete_all }).to eq(0)
+
+      patch "/api/v1/recipes/#{recipe.id}", headers: bob, as: :json, params: { recipe: { title: "Defaced" } }
+      expect(response).to have_http_status(:not_found)
+      delete "/api/v1/recipes/#{recipe.id}", headers: bob, as: :json
+      expect(response).to have_http_status(:not_found)
+
       expect(as_owner("alice-sub") { Recipe.find(recipe.id).title }).to eq("Pancakes")
     end
 
-    it "regenerating replaces the token, so the old link stops working" do
-      old_token = share!
-      new_token = share!
+    it "does not appear in another user's own collection" do
+      make_public!
 
-      expect(new_token).not_to eq(old_token)
-      expect(as_share_viewer(old_token) { Recipe.count }).to eq(0)
-      expect(as_share_viewer(new_token) { Recipe.pluck(:id) }).to eq([ recipe.id ])
+      expect(as_owner("bob-sub") { Recipe.owned_by("bob-sub").count }).to eq(0)
     end
 
-    it "revoking clears the token" do
-      token = share!
+    it "can be made private again, which hides it at once" do
+      make_public!
+      make_public!(false)
 
-      delete "/api/v1/recipes/#{recipe.id}/share", headers: alice, as: :json
-      expect(response).to have_http_status(:ok)
-      expect(response.parsed_body["share_token"]).to be_nil
-      expect(as_share_viewer(token) { Recipe.count }).to eq(0)
+      expect(as_anonymous { Recipe.count }).to eq(0)
     end
 
-    it "is never honoured by the write-api (DbContext clears app.share_token)" do
-      token = share!
-
-      found = as_share_viewer(token) do
-        DbContext.apply!(user_id: "bob-sub")
-        Recipe.where(share_token: token).count
-      end
-      expect(found).to eq(0)
+    it "rejects a null visibility" do
+      patch "/api/v1/recipes/#{recipe.id}", headers: alice, as: :json, params: { recipe: { is_public: nil } }
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 end

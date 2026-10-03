@@ -11,8 +11,8 @@ Every file here is compiled by sqlc (`make gen`) against
   because each request transaction sets `app.user_id` to the token's `sub`
   (`db.ReadTx` in `internal/db/db.go`). No WHERE clause is needed.
 - `recipes.sql`: owner queries filter on `owner_sub` explicitly *and* rely
-  on RLS. `GetSharedRecipe` is used by the public share route, which sets only
-  `app.share_token`; the `recipes_shared_read` policy then exposes that one row.
+  on RLS. `GetPublicRecipe` serves the no-login route, which runs with no user,
+  so the `recipes_public_read` policy only lets public rows through.
 - `TENANT_MODE=on`: after `bin/rails generate tenancy`, add
   `WHERE tenant_id = sqlc.arg(tenant_id)` to tenant-owned queries. RLS already
   enforces isolation; the filter keeps the intent visible and lets Postgres use

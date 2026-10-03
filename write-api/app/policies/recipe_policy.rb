@@ -5,5 +5,4 @@ class RecipePolicy < ApplicationPolicy
   def create? = user.reader?
   def update? = user.reader?
   def destroy? = user.reader?
-  def share? = user.reader?
 end

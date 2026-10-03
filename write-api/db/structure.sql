@@ -103,7 +103,7 @@ CREATE TABLE public.recipes (
     ingredients text[] DEFAULT '{}'::text[] NOT NULL,
     directions text[] DEFAULT '{}'::text[] NOT NULL,
     image_key character varying,
-    share_token character varying,
+    is_public boolean DEFAULT false NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -860,13 +860,6 @@ CREATE INDEX index_recipes_on_owner_sub_and_created_at ON public.recipes USING b
 
 
 --
--- Name: index_recipes_on_share_token; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_recipes_on_share_token ON public.recipes USING btree (share_token);
-
-
---
 -- Name: index_solid_queue_batch_executions_on_batch_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1181,10 +1174,10 @@ CREATE POLICY recipes_owner ON public.recipes USING (((owner_sub)::text = NULLIF
 
 
 --
--- Name: recipes recipes_shared_read; Type: POLICY; Schema: public; Owner: -
+-- Name: recipes recipes_public_read; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY recipes_shared_read ON public.recipes FOR SELECT USING (((share_token)::text = NULLIF(current_setting('app.share_token'::text, true), ''::text)));
+CREATE POLICY recipes_public_read ON public.recipes FOR SELECT USING (is_public);
 
 
 --

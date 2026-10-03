@@ -2,14 +2,12 @@
 # (Recipe.owned_by) and by the recipes_owner row-level-security policy, so
 # another user's id is simply not found (404).
 #
-# share_token, when set, gives read-only access to this one recipe without
-# login through the read-api (GET /api/v1/shared/recipes/:token). It is 256
-# random bits, URL-safe; regenerating replaces it and revoking clears it, so
-# old links stop working immediately.
+# Private by default. With is_public, the recipes_public_read policy lets
+# anyone read it without login through the read-api
+# (GET /api/v1/public/recipes/:id). Only the owner can ever change it.
 class Recipe < ApplicationRecord
   MAX_ITEMS = 200
   MAX_ITEM_LENGTH = 2_000
-  SHARE_TOKEN_BYTES = 32 # 43 URL-safe base64 characters
 
   scope :owned_by, ->(sub) { where(owner_sub: sub) }
 
@@ -17,20 +15,11 @@ class Recipe < ApplicationRecord
 
   validates :owner_sub, presence: true
   validates :title, presence: true, length: { maximum: 200 }
+  validates :is_public, inclusion: { in: [ true, false ] }
   validate :lists_within_limits
 
-  def self.generate_share_token = SecureRandom.urlsafe_base64(SHARE_TOKEN_BYTES)
-
-  def regenerate_share_token!
-    update!(share_token: self.class.generate_share_token)
-  end
-
-  def revoke_share_token!
-    update!(share_token: nil)
-  end
-
   def as_json(*)
-    super(only: %i[id title ingredients directions image_key share_token created_at updated_at])
+    super(only: %i[id title ingredients directions image_key is_public created_at updated_at])
   end
 
   private

@@ -24,8 +24,39 @@ func (q *Queries) CountRecipes(ctx context.Context, ownerSub string) (int64, err
 	return count, err
 }
 
+const getPublicRecipe = `-- name: GetPublicRecipe :one
+SELECT id, title, ingredients, directions, image_key, created_at, updated_at
+FROM recipes
+WHERE id = $1 AND is_public
+`
+
+type GetPublicRecipeRow struct {
+	ID          int64       `json:"id"`
+	Title       string      `json:"title"`
+	Ingredients []string    `json:"ingredients"`
+	Directions  []string    `json:"directions"`
+	ImageKey    pgtype.Text `json:"image_key"`
+	CreatedAt   time.Time   `json:"created_at"`
+	UpdatedAt   time.Time   `json:"updated_at"`
+}
+
+func (q *Queries) GetPublicRecipe(ctx context.Context, id int64) (GetPublicRecipeRow, error) {
+	row := q.db.QueryRow(ctx, getPublicRecipe, id)
+	var i GetPublicRecipeRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Ingredients,
+		&i.Directions,
+		&i.ImageKey,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, title, ingredients, directions, image_key, share_token, created_at, updated_at
+SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE id = $1 AND owner_sub = $2
 `
@@ -41,7 +72,7 @@ type GetRecipeRow struct {
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
 	ImageKey    pgtype.Text `json:"image_key"`
-	ShareToken  pgtype.Text `json:"share_token"`
+	IsPublic    bool        `json:"is_public"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
@@ -55,38 +86,7 @@ func (q *Queries) GetRecipe(ctx context.Context, arg GetRecipeParams) (GetRecipe
 		&i.Ingredients,
 		&i.Directions,
 		&i.ImageKey,
-		&i.ShareToken,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getSharedRecipe = `-- name: GetSharedRecipe :one
-SELECT id, title, ingredients, directions, image_key, created_at, updated_at
-FROM recipes
-WHERE share_token = $1::text
-`
-
-type GetSharedRecipeRow struct {
-	ID          int64       `json:"id"`
-	Title       string      `json:"title"`
-	Ingredients []string    `json:"ingredients"`
-	Directions  []string    `json:"directions"`
-	ImageKey    pgtype.Text `json:"image_key"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
-}
-
-func (q *Queries) GetSharedRecipe(ctx context.Context, shareToken string) (GetSharedRecipeRow, error) {
-	row := q.db.QueryRow(ctx, getSharedRecipe, shareToken)
-	var i GetSharedRecipeRow
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Ingredients,
-		&i.Directions,
-		&i.ImageKey,
+		&i.IsPublic,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -94,7 +94,7 @@ func (q *Queries) GetSharedRecipe(ctx context.Context, shareToken string) (GetSh
 }
 
 const listRecipes = `-- name: ListRecipes :many
-SELECT id, title, ingredients, directions, image_key, share_token, created_at, updated_at
+SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE owner_sub = $1
 ORDER BY created_at DESC, id DESC
@@ -113,7 +113,7 @@ type ListRecipesRow struct {
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
 	ImageKey    pgtype.Text `json:"image_key"`
-	ShareToken  pgtype.Text `json:"share_token"`
+	IsPublic    bool        `json:"is_public"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
@@ -133,7 +133,7 @@ func (q *Queries) ListRecipes(ctx context.Context, arg ListRecipesParams) ([]Lis
 			&i.Ingredients,
 			&i.Directions,
 			&i.ImageKey,
-			&i.ShareToken,
+			&i.IsPublic,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {

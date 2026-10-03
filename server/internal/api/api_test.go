@@ -55,23 +55,21 @@ func TestProtectedRoutesNeedToken(t *testing.T) {
 	}
 }
 
-// The share route needs no token; a malformed one is a 404 before any database
-// call (the test server has no pool), indistinguishable from a revoked link.
-func TestSharedRecipeIsPublicAndRejectsMalformedTokens(t *testing.T) {
-	for _, token := range []string{"short", "has.dots.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"} {
-		rec := httptest.NewRecorder()
-		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/shared/recipes/"+token, nil))
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("GET shared %q = %d, want 404", token, rec.Code)
-		}
-		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-			t.Errorf("GET shared %q Cache-Control = %q, want no-store", token, got)
-		}
+// The public route needs no token; a non-numeric id is a 404 before any
+// database call (the test server has no pool), like a private recipe.
+func TestPublicRecipeNeedsNoTokenAndIsReadOnly(t *testing.T) {
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/public/recipes/abc", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET public/recipes/abc = %d, want 404", rec.Code)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("Cache-Control = %q, want no-store", got)
 	}
 
-	rec := httptest.NewRecorder()
-	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/shared/recipes/x", nil))
+	rec = httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/public/recipes/1", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("DELETE shared = %d, want 405", rec.Code)
+		t.Errorf("DELETE public/recipes/1 = %d, want 405", rec.Code)
 	}
 }

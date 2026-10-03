@@ -2,8 +2,6 @@
 #
 #   app.user_id    the caller's token `sub`
 #   app.tenant_id  the current tenant (TENANT_MODE=on only)
-#   app.share_token  always cleared here. Share links are read-only and only
-#                  the read-api's public share route sets it.
 #
 # set_config(..., true) is transaction-local, so the values can never leak to
 # the next request that reuses the pooled connection.
@@ -12,8 +10,7 @@ module DbContext
 
   def apply!(user_id:, tenant_id: nil)
     sql = ActiveRecord::Base.sanitize_sql_array([
-      "SELECT set_config('app.user_id', ?, true), set_config('app.tenant_id', ?, true), " \
-      "set_config('app.share_token', '', true)",
+      "SELECT set_config('app.user_id', ?, true), set_config('app.tenant_id', ?, true)",
       user_id.to_s, tenant_id.to_s
     ])
     ActiveRecord::Base.connection.select_all(sql)
