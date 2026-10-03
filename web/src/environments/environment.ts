@@ -9,8 +9,8 @@ export const environment: AppEnvironment = {
     authority: 'https://auth.example.com/realms/app',
     clientId: 'app-spa',
   },
-  // Same origin behind nginx: GET /api/v1 -> Go read-api, /api/w/v1 -> Rails write-api.
-  readApi: '/api/v1',
-  writeApi: '/api/w/v1',
+  // Same origin behind nginx, which splits /api/v1 by method: GET -> Go
+  // read-api, POST/PATCH/PUT/DELETE -> Rails write-api.
+  api: '/api/v1',
   tenantMode: false,
 };

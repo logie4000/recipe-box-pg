@@ -1,4 +1,4 @@
-# Base for the token-authenticated JSON API (/api/w/v1/*).
+# Base for the token-authenticated JSON API (/api/v1/*).
 # Admin pages use Admin::BaseController (cookie session) instead.
 class ApplicationController < ActionController::API
   include JwtAuthentication

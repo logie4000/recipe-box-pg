@@ -31,7 +31,7 @@ module WriteApi
 
     config.autoload_lib(ignore: %w[assets tasks generators pg_tools])
 
-    # API-only app: token auth for /api/w/v1. /admin re-adds cookies/sessions
+    # API-only app: token auth for /api/v1. /admin re-adds cookies/sessions
     # below, scoped by Admin::BaseController.
     config.api_only = true
 

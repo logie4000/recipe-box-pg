@@ -5,7 +5,7 @@
 #   make up       postgres + keycloak (docker compose), realm auto-imported
 #   make migrate  rails db:migrate db:seed (as app_owner), then sqlc generate
 #   make rails    write-api on :3000       make api   read-api on :8080
-#   make web      ng serve on :4200 (proxies /api/v1 -> :8080, /api/w + /admin -> :3000)
+#   make web      ng serve on :4200 (/api/v1: GET -> :8080, writes -> :3000; /admin -> :3000)
 #   make test     rspec + go test + ng test
 SHELL := bash
 .SHELLFLAGS := -eu -o pipefail -c

@@ -36,8 +36,8 @@ describe('apiInterceptor', () => {
 
   it('adds the tenant header to write-api calls when a tenant is selected', () => {
     TestBed.inject(TenantService).select('11111111-1111-4111-8111-111111111111');
-    http.post('/api/w/v1/notes', {}).subscribe();
-    const req = backend.expectOne('/api/w/v1/notes');
+    http.post('/api/v1/notes', {}).subscribe();
+    const req = backend.expectOne('/api/v1/notes');
     expect(req.request.headers.get('X-Tenant-Id')).toBe('11111111-1111-4111-8111-111111111111');
     req.flush({});
   });

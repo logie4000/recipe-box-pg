@@ -9,8 +9,8 @@ for setup; this is a map of the pieces.
 | Bearer token check (JWKS, iss, aud, exp) | `app/controllers/concerns/jwt_authentication.rb`, `app/services/oidc/` |
 | Role-based authorization (reader / editor / admin) | `app/policies/` (Pundit), `app/models/auth_user.rb` |
 | `app.user_id` / `app.tenant_id` for RLS, one txn per request | `app/controllers/concerns/database_request_context.rb`, `app/models/db_context.rb` |
-| Example resource | `app/controllers/api/w/v1/notes_controller.rb` (POST/PATCH/DELETE `/api/w/v1/notes`) |
-| RLS example | `private_notes` table + `app/controllers/api/w/v1/private_notes_controller.rb` |
+| Example resource | `app/controllers/api/v1/notes_controller.rb` (POST/PATCH/DELETE `/api/v1/notes`) |
+| RLS example | `private_notes` table + `app/controllers/api/v1/private_notes_controller.rb` |
 | Admin cookie-login hook | `config/initializers/omniauth.rb`, `app/controllers/admin/` |
 | Multi-tenancy (off by default) | `app/models/tenancy.rb`, `app/controllers/concerns/tenant_resolution.rb`, `bin/rails g tenancy` |
 | CORS | `config/initializers/cors.rb` (`CORS_ALLOWED_ORIGINS`) |

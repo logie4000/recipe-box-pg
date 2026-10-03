@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -64,6 +66,10 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_reader",
 		"INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('hello', '', 'seed', now(), now())",
 		"INSERT INTO private_notes (owner_sub, body, created_at, updated_at) VALUES ('alice', 'a', now(), now()), ('bob', 'b', now(), now())",
+		"INSERT INTO recipes (id, public_id, owner_sub, title, ingredients, directions, is_public, created_at, updated_at) VALUES " +
+			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, now(), now()), " +
+			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, now(), now()), " +
+			"(3, '" + chiliPublicID + "', 'bob', 'Chili', '{beans}', '{Simmer}', false, now(), now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
 			t.Fatalf("setup %q: %v", firstLine(stmt), err)
@@ -100,6 +106,8 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		}
 	})
 
+	testRecipes(ctx, t, pool)
+
 	t.Run("RLS limits private notes to the caller", func(t *testing.T) {
 		for user, want := range map[string]int{"alice": 1, "bob": 1, "": 0} {
 			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
@@ -115,6 +123,90 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+		}
+	})
+}
+
+const (
+	pancakesPublicID = "Pancakes0001"
+	soupPublicID     = "SoupSoup0002"
+	chiliPublicID    = "ChiliChili03"
+)
+
+func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	t.Run("recipes: each owner sees only their own", func(t *testing.T) {
+		for user, want := range map[string]int{"alice": 2, "bob": 1, "": 0} {
+			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
+				rows, err := q.ListRecipes(ctx, sqlc.ListRecipesParams{OwnerSub: user, Limit: 10})
+				if err != nil {
+					return err
+				}
+				if len(rows) != want {
+					return fmt.Errorf("user %q listed %d recipes, want %d", user, len(rows), want)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
+	t.Run("recipes: RLS hides other owners' private rows even if the query asks for them", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "bob"}, func(q *sqlc.Queries) error {
+			// Asking for alice's rows while signed in as bob: only her public one.
+			rows, err := q.ListRecipes(ctx, sqlc.ListRecipesParams{OwnerSub: "alice", Limit: 10})
+			if err != nil {
+				return err
+			}
+			if len(rows) != 1 || rows[0].ID != 2 {
+				return fmt.Errorf("bob saw %+v of alice's recipes, want only public recipe 2", rows)
+			}
+			if _, err := q.GetRecipe(ctx, sqlc.GetRecipeParams{ID: 1, OwnerSub: "alice"}); !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("bob GetRecipe(alice's 1) err = %v, want no rows", err)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("recipes: a public recipe can be read without a user, private ones cannot", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{}, func(q *sqlc.Queries) error {
+			r, err := q.GetPublicRecipe(ctx, soupPublicID)
+			if err != nil {
+				return err
+			}
+			if r.Title != "Soup" {
+				return fmt.Errorf("public recipe = %+v", r)
+			}
+			for _, id := range []string{pancakesPublicID, chiliPublicID, "NoSuchRecipe"} {
+				if _, err := q.GetPublicRecipe(ctx, id); !errors.Is(err, pgx.ErrNoRows) {
+					return fmt.Errorf("recipe %s: err = %v, want no rows", id, err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("recipes: RLS alone exposes only public rows to anonymous readers", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{}, func(q *sqlc.Queries) error {
+			// ListRecipes has no is_public filter; RLS must still hide private rows.
+			rows, err := q.ListRecipes(ctx, sqlc.ListRecipesParams{OwnerSub: "alice", Limit: 10})
+			if err != nil {
+				return err
+			}
+			if len(rows) != 1 || rows[0].ID != 2 {
+				return fmt.Errorf("anonymous listed %+v, want only public recipe 2", rows)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
 	})
 }

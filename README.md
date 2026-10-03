@@ -9,11 +9,16 @@ repo per app.
 Browser (Angular SPA) ── OIDC Auth Code + PKCE ──> Keycloak
         │  Authorization: Bearer <access token, aud=app-api>
         ▼
-nginx ─┬─ /                 Angular static files
-       ├─ GET /api/v1/*     read-api  (Go)    role app_reader: SELECT only, read-only txns
-       └─ /api/w/v1/*, /admin  write-api (Rails) role app_writer: DML only
-                                              (migrations run as app_owner, deploy step only)
+nginx ─┬─ /                          Angular static files
+       ├─ GET/HEAD /api/v1/*         read-api  (Go)    role app_reader: SELECT only, read-only txns
+       └─ POST/PUT/PATCH/DELETE /api/v1/*, /admin
+                                     write-api (Rails) role app_writer: DML only
+                                     (migrations run as app_owner, deploy step only)
 ```
+
+One REST URL space: `/api/v1/notes/7` is read with GET (Go) and changed with
+PATCH or DELETE (Rails). nginx picks the service by HTTP method, and so does
+`web/proxy.conf.mjs` under `ng serve`.
 
 Both APIs verify tokens against Keycloak's JWKS (iss, aud, exp). Neither calls
 the other. Rule of thumb: **business rules for writes in Rails, read queries in Go.**
@@ -22,11 +27,12 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 
 | Path | What |
 |---|---|
-| `web/` | Angular 21 (standalone, signals). `src/app/core/`: OIDC config, interceptor, guards. `src/app/features/notes/`: list via read-api, form via write-api. `proxy.conf.json` for `ng serve`. |
+| `web/` | Angular 21 (standalone, signals). `src/app/core/`: OIDC config, interceptor, guards. `src/app/features/notes/`: list via read-api, form via write-api. `proxy.conf.mjs` for `ng serve` (routes `/api/v1` by method, like nginx). |
 | `server/` | Go read-api. `cmd/read-api/`, `internal/auth/` (JWT + tenant), `internal/db/` (pgx pool, `ReadTx`, generated sqlc), `internal/httpx/` (JSON, CORS, logging), `internal/api/` (routes), `queries/` (sqlc SELECTs). |
 | `write-api/` | Rails 8 API app. JWT concern, Pundit policies, migrations, `db/structure.sql`, seeds, admin login hook. See `write-api/README.md`. |
 | `deploy/` | `docker-compose.yml` (dev) + `docker-compose.prod.yml` (EC2), Postgres init, `keycloak/realm.json`, nginx site template, backup container, deploy/restore scripts. |
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
+| `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, endpoints. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
 
@@ -122,7 +128,8 @@ stale.
 Adding a read endpoint: write a SELECT in `server/queries/*.sql`, run
 `make gen`, then add a handler in `server/internal/api/`.
 Adding a write: add a migration if needed, then a model, a policy and a
-controller under `Api::W::V1`.
+controller under `Api::V1` (write verbs only; `spec/routing/api_routes_spec.rb`
+fails on a GET route).
 
 ## Admin login hook
 
@@ -144,7 +151,7 @@ accounts by verified email. The SPA's "Sign in with Google" button passes
 
 ## API versioning and mobile
 
-Routes are versioned: `/api/v1/*` (Go) and `/api/w/v1/*` (Rails). Clients send
+Routes are versioned: `/api/v1/*`, with GETs served by Go and writes by Rails. Clients send
 `X-Client-Version`, and both APIs log it. `GET /api/v1/meta` returns
 `min_supported_version` (`MIN_SUPPORTED_CLIENT_VERSION`). `CORS_ALLOWED_ORIGINS`
 applies to both APIs; the default includes `capacitor://localhost` and

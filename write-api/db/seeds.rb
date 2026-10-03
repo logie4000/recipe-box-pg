@@ -15,7 +15,7 @@ SEED_AUTHOR = "seed"
 def seed_notes(prefix)
   [
     { title: "#{prefix}Welcome", body: "This note came from db/seeds.rb and is served by the Go read-api." },
-    { title: "#{prefix}How writes work", body: "The Angular form POSTs to /api/w/v1/notes (Rails), then re-reads through /api/v1/notes (Go)." }
+    { title: "#{prefix}How writes work", body: "The Angular form POSTs to /api/v1/notes (served by Rails), then re-reads it with GET (served by Go)." }
   ].each do |attrs|
     Note.find_or_create_by!(title: attrs[:title]) do |note|
       note.body = attrs[:body]

@@ -29,15 +29,15 @@ describe('NotesApi', () => {
 
   it('writes to the Rails write-api', () => {
     api.create({ title: 'T', body: 'B' }).subscribe((r) => expect(r.id).toBe(7));
-    const create = backend.expectOne('/api/w/v1/notes');
+    const create = backend.expectOne('/api/v1/notes');
     expect(create.request.method).toBe('POST');
     expect(create.request.body).toEqual({ note: { title: 'T', body: 'B' } });
     create.flush({ id: 7 });
 
     api.update(7, { title: 'U', body: '' }).subscribe();
-    expect(backend.expectOne('/api/w/v1/notes/7').request.method).toBe('PATCH');
+    expect(backend.expectOne('/api/v1/notes/7').request.method).toBe('PATCH');
 
     api.delete(7).subscribe();
-    expect(backend.expectOne('/api/w/v1/notes/7').request.method).toBe('DELETE');
+    expect(backend.expectOne('/api/v1/notes/7').request.method).toBe('DELETE');
   });
 });
