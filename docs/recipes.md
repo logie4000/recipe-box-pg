@@ -28,9 +28,9 @@ Isolation is enforced in three places, so one forgotten filter does not leak dat
 
 ## Share by URL
 
-- The owner creates the token with `POST /api/w/v1/recipes/:id/share`. Posting
+- The owner creates the token with `POST /api/v1/recipes/:id/share`. Posting
   again replaces it and the old link stops working.
-  `DELETE /api/w/v1/recipes/:id/share` revokes it.
+  `DELETE /api/v1/recipes/:id/share` revokes it.
 - Anyone with the link reads that one recipe without logging in:
   `GET /api/v1/shared/recipes/:share_token` (Go read-api, public route). The
   response has no `owner_sub` and no `share_token`, and is sent with
@@ -47,23 +47,26 @@ Isolation is enforced in three places, so one forgotten filter does not leak dat
 
 ## Endpoints
 
+All under `/api/v1`. nginx sends GET/HEAD to the Go read-api and writes to
+the Rails write-api, so a recipe has one URL for every operation.
+
 | Method + path | Service | Auth | What |
 |---|---|---|---|
 | `GET /api/v1/recipes?limit=&offset=` | read-api | token | the caller's recipes, newest first: `{items, total, limit, offset}` |
 | `GET /api/v1/recipes/:id` | read-api | token | one of the caller's recipes (includes `share_token`) |
 | `GET /api/v1/shared/recipes/:token` | read-api | none | read-only shared recipe |
-| `POST /api/w/v1/recipes` | write-api | token | `{recipe: {title, ingredients: [], directions: []}}` gives 201 `{id, recipe}` |
-| `PATCH /api/w/v1/recipes/:id` | write-api | token | same body, partial update |
-| `DELETE /api/w/v1/recipes/:id` | write-api | token | |
-| `POST /api/w/v1/recipes/:id/share` | write-api | token | 201 `{id, share_token}` (creates or regenerates) |
-| `DELETE /api/w/v1/recipes/:id/share` | write-api | token | `{id, share_token: null}` |
+| `POST /api/v1/recipes` | write-api | token | `{recipe: {title, ingredients: [], directions: []}}` gives 201 `{id, recipe}` |
+| `PATCH /api/v1/recipes/:id` | write-api | token | same body, partial update |
+| `DELETE /api/v1/recipes/:id` | write-api | token | |
+| `POST /api/v1/recipes/:id/share` | write-api | token | 201 `{id, share_token}` (creates or regenerates) |
+| `DELETE /api/v1/recipes/:id/share` | write-api | token | `{id, share_token: null}` |
 
 Writes require the `reader` realm role, as `private_notes` does. Make sure new
 family accounts get it (Keycloak default roles).
 
 ## Tests
 
-- `write-api/spec/requests/api/w/v1/recipes_spec.rb`: CRUD, 404s for other
+- `write-api/spec/requests/api/v1/recipes_spec.rb`: CRUD, 404s for other
   users on every write, RLS checked directly in the database, and share token
   create, regenerate and revoke, including the read-only check.
 - `server/internal/api/api_test.go`: the recipe routes need a token; the share

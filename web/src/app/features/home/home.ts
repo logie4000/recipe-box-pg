@@ -49,7 +49,7 @@ export class Home {
   protected readonly auth = inject(AuthService);
   protected readonly meta = toSignal(
     inject(HttpClient)
-      .get<Meta>(`${environment.readApi}/meta`)
+      .get<Meta>(`${environment.api}/meta`)
       .pipe(catchError(() => of(null))),
   );
 }

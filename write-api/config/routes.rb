@@ -2,15 +2,15 @@ Rails.application.routes.draw do
   # Health check for load balancers and uptime monitors.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # JSON write API. nginx routes /api/w/* here; reads go to the Go read-api (/api/v1/*).
+  # JSON write API. One URL space, /api/v1/*, split by HTTP method: nginx (and
+  # web/proxy.conf.mjs in dev) sends POST/PUT/PATCH/DELETE here and GET/HEAD to
+  # the Go read-api. So this app defines no GET routes under /api.
   namespace :api do
-    namespace :w do
-      namespace :v1 do
-        resources :notes, only: %i[create update destroy]
-        resources :private_notes, only: %i[create destroy]
-        resources :recipes, only: %i[create update destroy] do
-          resource :share, only: %i[create destroy], module: :recipes
-        end
+    namespace :v1 do
+      resources :notes, only: %i[create update destroy]
+      resources :private_notes, only: %i[create destroy]
+      resources :recipes, only: %i[create update destroy] do
+        resource :share, only: %i[create destroy], module: :recipes
       end
     end
   end
