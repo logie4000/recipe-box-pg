@@ -1,5 +1,5 @@
 -- name: ListRecipes :many
-SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE owner_sub = $1
 ORDER BY created_at DESC, id DESC
@@ -10,11 +10,11 @@ SELECT count(*) FROM recipes
 WHERE owner_sub = $1;
 
 -- name: GetRecipe :one
-SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE id = $1 AND owner_sub = $2;
 
 -- name: GetPublicRecipe :one
-SELECT id, title, ingredients, directions, image_key, created_at, updated_at
+SELECT public_id, title, ingredients, directions, image_key, created_at, updated_at
 FROM recipes
-WHERE id = $1 AND is_public;
+WHERE public_id = $1 AND is_public;

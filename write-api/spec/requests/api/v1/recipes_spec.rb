@@ -14,6 +14,8 @@ RSpec.describe "/api/v1/recipes" do
     end
   end
 
+  UUID_FORMAT = /\A\h{8}-\h{4}-4\h{3}-[89ab]\h{3}-\h{12}\z/
+
   def as_owner(sub, &block) = DbContext.with(user_id: sub, &block)
 
   # What the read-api's public route does: no user at all.
@@ -30,16 +32,26 @@ RSpec.describe "/api/v1/recipes" do
       expect(body).to include("title" => "Soup", "ingredients" => [ "1 onion", "2 carrots" ], "directions" => [ "Chop" ],
                               "is_public" => false, "image_key" => nil)
       expect(body).not_to have_key("owner_sub")
+      expect(body["public_id"]).to match(UUID_FORMAT)
       expect(as_owner("alice-sub") { Recipe.find(body["id"]).owner_sub }).to eq("alice-sub")
     end
 
-    it "ignores an owner_sub or image_key in the body" do
+    it "ignores an owner_sub, image_key or public_id in the body" do
+      chosen = "00000000-0000-4000-8000-000000000000"
       post "/api/v1/recipes", headers: alice, as: :json,
-           params: { recipe: { title: "Soup", owner_sub: "bob-sub", image_key: "someone/else.jpg" } }
+           params: { recipe: { title: "Soup", owner_sub: "bob-sub", image_key: "someone/else.jpg", public_id: chosen } }
 
       expect(response).to have_http_status(:created)
       recipe = as_owner("alice-sub") { Recipe.find(response.parsed_body["id"]) }
       expect([ recipe.owner_sub, recipe.image_key ]).to eq([ "alice-sub", nil ])
+      expect(recipe.public_id).to match(UUID_FORMAT)
+      expect(recipe.public_id).not_to eq(chosen)
+    end
+
+    it "gives every recipe its own random public_id" do
+      ids = Array.new(3) { create_recipe("alice-sub").public_id }
+      expect(ids.uniq.size).to eq(3)
+      expect(ids).to all(match(UUID_FORMAT))
     end
 
     it "rejects a missing title (422) and a missing body (400)" do
@@ -118,11 +130,21 @@ RSpec.describe "/api/v1/recipes" do
       expect(as_owner("bob-sub") { Recipe.count }).to eq(0)
     end
 
-    it "once public, can be read without login, and only that recipe" do
+    it "once public, can be read without login by its public_id, and only that recipe" do
       make_public!
 
+      expect(as_anonymous { Recipe.find_by(public_id: recipe.public_id)&.title }).to eq("Pancakes")
+      expect(as_anonymous { Recipe.find_by(public_id: other.public_id) }).to be_nil
       expect(as_anonymous { Recipe.pluck(:id) }).to eq([ recipe.id ])
       expect(as_owner("bob-sub") { Recipe.pluck(:id) }).to eq([ recipe.id ])
+    end
+
+    it "keeps the same public_id across edits and visibility changes" do
+      make_public!
+      patch "/api/v1/recipes/#{recipe.id}", headers: alice, as: :json, params: { recipe: { title: "Renamed" } }
+      make_public!(false)
+
+      expect(response.parsed_body["recipe"]["public_id"]).to eq(recipe.public_id)
     end
 
     it "stays read-only for everyone but the owner" do

@@ -104,6 +104,7 @@ CREATE TABLE public.recipes (
     directions text[] DEFAULT '{}'::text[] NOT NULL,
     image_key character varying,
     is_public boolean DEFAULT false NOT NULL,
+    public_id uuid DEFAULT gen_random_uuid() NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL
 );
@@ -857,6 +858,13 @@ CREATE INDEX index_private_notes_on_owner_sub_and_created_at ON public.private_n
 --
 
 CREATE INDEX index_recipes_on_owner_sub_and_created_at ON public.recipes USING btree (owner_sub, created_at);
+
+
+--
+-- Name: index_recipes_on_public_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_recipes_on_public_id ON public.recipes USING btree (public_id);
 
 
 --

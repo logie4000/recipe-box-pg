@@ -3,8 +3,10 @@
 # another user's id is simply not found (404).
 #
 # Private by default. With is_public, the recipes_public_read policy lets
-# anyone read it without login through the read-api
-# (GET /api/v1/public/recipes/:id). Only the owner can ever change it.
+# anyone read it without login through the read-api at
+# GET /api/v1/public/recipes/:public_id. public_id is a random UUID the
+# database assigns, separate from the sequential id, so the public URL can't
+# be guessed. Only the owner can ever change the recipe.
 class Recipe < ApplicationRecord
   MAX_ITEMS = 200
   MAX_ITEM_LENGTH = 2_000
@@ -19,7 +21,7 @@ class Recipe < ApplicationRecord
   validate :lists_within_limits
 
   def as_json(*)
-    super(only: %i[id title ingredients directions image_key is_public created_at updated_at])
+    super(only: %i[id title ingredients directions image_key is_public public_id created_at updated_at])
   end
 
   private

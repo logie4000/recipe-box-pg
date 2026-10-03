@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
@@ -66,10 +67,10 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_reader",
 		"INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('hello', '', 'seed', now(), now())",
 		"INSERT INTO private_notes (owner_sub, body, created_at, updated_at) VALUES ('alice', 'a', now(), now()), ('bob', 'b', now(), now())",
-		"INSERT INTO recipes (id, owner_sub, title, ingredients, directions, is_public, created_at, updated_at) VALUES " +
-			"(1, 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, now(), now()), " +
-			"(2, 'alice', 'Soup', '{}', '{}', true, now(), now()), " +
-			"(3, 'bob', 'Chili', '{beans}', '{Simmer}', false, now(), now())",
+		"INSERT INTO recipes (id, public_id, owner_sub, title, ingredients, directions, is_public, created_at, updated_at) VALUES " +
+			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, now(), now()), " +
+			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, now(), now()), " +
+			"(3, '" + chiliPublicID + "', 'bob', 'Chili', '{beans}', '{Simmer}', false, now(), now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
 			t.Fatalf("setup %q: %v", firstLine(stmt), err)
@@ -127,6 +128,21 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 	})
 }
 
+const (
+	pancakesPublicID = "6f1d2c3b-0a4e-4b5f-9c6d-7e8f9a0b1c2d"
+	soupPublicID     = "1b2c3d4e-5f60-4718-89ab-cdef01234567"
+	chiliPublicID    = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d"
+)
+
+func mustUUID(t *testing.T, s string) pgtype.UUID {
+	t.Helper()
+	var u pgtype.UUID
+	if err := u.Scan(s); err != nil {
+		t.Fatal(err)
+	}
+	return u
+}
+
 func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 	t.Run("recipes: each owner sees only their own", func(t *testing.T) {
 		for user, want := range map[string]int{"alice": 2, "bob": 1, "": 0} {
@@ -168,16 +184,16 @@ func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 
 	t.Run("recipes: a public recipe can be read without a user, private ones cannot", func(t *testing.T) {
 		err := ReadTx(ctx, pool, RequestContext{}, func(q *sqlc.Queries) error {
-			r, err := q.GetPublicRecipe(ctx, 2)
+			r, err := q.GetPublicRecipe(ctx, mustUUID(t, soupPublicID))
 			if err != nil {
 				return err
 			}
 			if r.Title != "Soup" {
 				return fmt.Errorf("public recipe = %+v", r)
 			}
-			for _, id := range []int64{1, 3} {
-				if _, err := q.GetPublicRecipe(ctx, id); !errors.Is(err, pgx.ErrNoRows) {
-					return fmt.Errorf("private recipe %d: err = %v, want no rows", id, err)
+			for _, id := range []string{pancakesPublicID, chiliPublicID, "00000000-0000-4000-8000-000000000000"} {
+				if _, err := q.GetPublicRecipe(ctx, mustUUID(t, id)); !errors.Is(err, pgx.ErrNoRows) {
+					return fmt.Errorf("recipe %s: err = %v, want no rows", id, err)
 				}
 			}
 			return nil

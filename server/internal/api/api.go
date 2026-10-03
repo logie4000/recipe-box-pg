@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/logie4000/webapp-template/server/internal/auth"
@@ -36,7 +37,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /api/v1/meta", s.meta)
-	mux.HandleFunc("GET /api/v1/public/recipes/{id}", s.getPublicRecipe)
+	mux.HandleFunc("GET /api/v1/public/recipes/{public_id}", s.getPublicRecipe)
 
 	// Authenticated (+ tenant when TENANT_MODE=on)
 	protected := func(h http.HandlerFunc) http.Handler {
@@ -148,7 +149,7 @@ func (s *Server) listPrivateNotes(w http.ResponseWriter, r *http.Request) {
 
 // The caller's own collection: the queries filter on owner_sub, and RLS hides
 // other users' private rows anyway. Someone else's id is a 404 here, even when
-// that recipe is public (public reads use /api/v1/public/recipes/{id}).
+// that recipe is public (public reads use /api/v1/public/recipes/{public_id}).
 func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 20, 1, 100)
 	offset := queryInt(r, "offset", 0, 0, 1_000_000)
@@ -191,20 +192,22 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, recipe)
 }
 
-// getPublicRecipe needs no login: it runs with no user, so the only rows
-// RLS lets through are those with is_public (recipes_public_read), and the
-// query asks for that explicitly too. Private, missing and deleted recipes all
-// get the same 404.
+// getPublicRecipe needs no login. It looks recipes up by public_id, a random
+// UUID, never the sequential id, so public recipes can't be found by
+// counting. It runs with no user, so RLS only lets is_public rows through
+// (recipes_public_read), and the query asks for that explicitly too.
+// Malformed ids and private, missing or deleted recipes all get the same 404.
 func (s *Server) getPublicRecipe(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
+	var publicID pgtype.UUID
+	if err := publicID.Scan(r.PathValue("public_id")); err != nil {
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 		return
 	}
 	var recipe sqlc.GetPublicRecipeRow
-	err = db.ReadTx(r.Context(), s.Pool, db.RequestContext{}, func(q *sqlc.Queries) error {
-		recipe, err = q.GetPublicRecipe(r.Context(), id)
+	err := db.ReadTx(r.Context(), s.Pool, db.RequestContext{}, func(q *sqlc.Queries) error {
+		var err error
+		recipe, err = q.GetPublicRecipe(r.Context(), publicID)
 		return err
 	})
 	if err != nil {

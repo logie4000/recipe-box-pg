@@ -1,7 +1,7 @@
 module Api
   module V1
     # Writes only. Reads go to the Go read-api: GET /api/v1/recipes(/:id),
-    # and GET /api/v1/public/recipes/:id (no login) once is_public is true.
+    # and GET /api/v1/public/recipes/:public_id (no login) once is_public is true.
     # Lookups are scoped to the caller (and RLS backs that up), so another
     # user's recipe is a 404, never a 403.
     class RecipesController < ApplicationController
@@ -30,7 +30,8 @@ module Api
       end
 
       private
-        # image_key is deliberately not permitted: the upload flow will set it.
+        # image_key is deliberately not permitted (the upload flow will set it),
+        # and public_id is assigned by the database.
         def recipe_params
           params.expect(recipe: [ :title, :is_public, ingredients: [], directions: [] ])
         end

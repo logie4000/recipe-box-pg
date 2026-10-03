@@ -55,21 +55,24 @@ func TestProtectedRoutesNeedToken(t *testing.T) {
 	}
 }
 
-// The public route needs no token; a non-numeric id is a 404 before any
-// database call (the test server has no pool), like a private recipe.
+// The public route needs no token. Anything that isn't a UUID, including a
+// sequential table id, is a 404 before any database call (the test server
+// has no pool), the same answer as a private recipe.
 func TestPublicRecipeNeedsNoTokenAndIsReadOnly(t *testing.T) {
-	rec := httptest.NewRecorder()
-	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/public/recipes/abc", nil))
-	if rec.Code != http.StatusNotFound {
-		t.Errorf("GET public/recipes/abc = %d, want 404", rec.Code)
-	}
-	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
-		t.Errorf("Cache-Control = %q, want no-store", got)
+	for _, id := range []string{"abc", "1", "42", "00000000-0000-4000-8000-00000000000"} {
+		rec := httptest.NewRecorder()
+		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/public/recipes/"+id, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("GET public/recipes/%s = %d, want 404", id, rec.Code)
+		}
+		if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+			t.Errorf("GET public/recipes/%s Cache-Control = %q, want no-store", id, got)
+		}
 	}
 
-	rec = httptest.NewRecorder()
-	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/public/recipes/1", nil))
+	rec := httptest.NewRecorder()
+	testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, "/api/v1/public/recipes/00000000-0000-4000-8000-000000000001", nil))
 	if rec.Code != http.StatusMethodNotAllowed {
-		t.Errorf("DELETE public/recipes/1 = %d, want 405", rec.Code)
+		t.Errorf("DELETE public recipe = %d, want 405", rec.Code)
 	}
 }

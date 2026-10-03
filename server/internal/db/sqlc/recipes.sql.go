@@ -25,13 +25,13 @@ func (q *Queries) CountRecipes(ctx context.Context, ownerSub string) (int64, err
 }
 
 const getPublicRecipe = `-- name: GetPublicRecipe :one
-SELECT id, title, ingredients, directions, image_key, created_at, updated_at
+SELECT public_id, title, ingredients, directions, image_key, created_at, updated_at
 FROM recipes
-WHERE id = $1 AND is_public
+WHERE public_id = $1 AND is_public
 `
 
 type GetPublicRecipeRow struct {
-	ID          int64       `json:"id"`
+	PublicID    pgtype.UUID `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
@@ -40,11 +40,11 @@ type GetPublicRecipeRow struct {
 	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
-func (q *Queries) GetPublicRecipe(ctx context.Context, id int64) (GetPublicRecipeRow, error) {
-	row := q.db.QueryRow(ctx, getPublicRecipe, id)
+func (q *Queries) GetPublicRecipe(ctx context.Context, publicID pgtype.UUID) (GetPublicRecipeRow, error) {
+	row := q.db.QueryRow(ctx, getPublicRecipe, publicID)
 	var i GetPublicRecipeRow
 	err := row.Scan(
-		&i.ID,
+		&i.PublicID,
 		&i.Title,
 		&i.Ingredients,
 		&i.Directions,
@@ -56,7 +56,7 @@ func (q *Queries) GetPublicRecipe(ctx context.Context, id int64) (GetPublicRecip
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE id = $1 AND owner_sub = $2
 `
@@ -68,6 +68,7 @@ type GetRecipeParams struct {
 
 type GetRecipeRow struct {
 	ID          int64       `json:"id"`
+	PublicID    pgtype.UUID `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
@@ -82,6 +83,7 @@ func (q *Queries) GetRecipe(ctx context.Context, arg GetRecipeParams) (GetRecipe
 	var i GetRecipeRow
 	err := row.Scan(
 		&i.ID,
+		&i.PublicID,
 		&i.Title,
 		&i.Ingredients,
 		&i.Directions,
@@ -94,7 +96,7 @@ func (q *Queries) GetRecipe(ctx context.Context, arg GetRecipeParams) (GetRecipe
 }
 
 const listRecipes = `-- name: ListRecipes :many
-SELECT id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE owner_sub = $1
 ORDER BY created_at DESC, id DESC
@@ -109,6 +111,7 @@ type ListRecipesParams struct {
 
 type ListRecipesRow struct {
 	ID          int64       `json:"id"`
+	PublicID    pgtype.UUID `json:"public_id"`
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
@@ -129,6 +132,7 @@ func (q *Queries) ListRecipes(ctx context.Context, arg ListRecipesParams) ([]Lis
 		var i ListRecipesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.PublicID,
 			&i.Title,
 			&i.Ingredients,
 			&i.Directions,
