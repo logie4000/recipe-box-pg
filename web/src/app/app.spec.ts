@@ -39,7 +39,7 @@ describe('App', () => {
     await fixture.whenStable();
     const text = (fixture.nativeElement as HTMLElement).textContent;
     expect(text).toContain('Alice');
-    expect(text).toContain('My recipes');
+    expect(text).toContain('Recipes');
     expect(text).toContain('Notes');
   });
 });

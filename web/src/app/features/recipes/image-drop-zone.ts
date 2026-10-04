@@ -61,9 +61,9 @@ import { prepareImage } from './prepare-image';
       position: relative;
       display: grid;
       place-items: center;
-      min-height: 12rem;
-      border: 2px dashed var(--border);
-      border-radius: 10px;
+      min-height: 200px;
+      border: 2px dashed #000;
+      background: var(--panel);
       cursor: pointer;
       overflow: hidden;
       text-align: center;
@@ -76,6 +76,7 @@ import { prepareImage } from './prepare-image';
     }
     .zone.has-image {
       border-style: solid;
+      background: none;
     }
     img {
       display: block;

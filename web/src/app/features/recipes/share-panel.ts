@@ -53,13 +53,13 @@ import { Recipe, RecipesApi } from './recipes.api';
   `,
   styles: `
     .share {
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      border: 2px solid #000;
+      background: var(--panel);
       padding: 0.75rem 1rem;
       margin: 1rem 0;
     }
     .share.on {
-      border-color: var(--accent);
+      background: #e3f4fc;
     }
     .switch {
       display: flex;

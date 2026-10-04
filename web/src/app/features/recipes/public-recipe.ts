@@ -17,15 +17,17 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
   template: `
     @if (recipe(); as r) {
       <article>
-        <h1>{{ r.title }}</h1>
-        @if (r.image_key && !imageFailed()) {
-          <img
-            class="photo"
-            [src]="api.publicImageUrl(r.public_id)"
-            alt="Photo of the finished dish"
-            (error)="imageFailed.set(true)"
-          />
-        }
+        <div class="recipe-top">
+          <h1>{{ r.title }}</h1>
+          @if (r.image_key && !imageFailed()) {
+            <img
+              class="photo"
+              [src]="api.publicImageUrl(r.public_id)"
+              alt="Photo of the finished dish"
+              (error)="imageFailed.set(true)"
+            />
+          }
+        </div>
         <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
       </article>
       <p class="muted footer">
@@ -46,12 +48,24 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
     }
   `,
   styles: `
+    .recipe-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 1.5rem;
+      align-items: start;
+    }
     .photo {
       display: block;
-      width: 100%;
+      width: 404px;
+      max-width: 100%;
       max-height: 28rem;
       object-fit: cover;
-      border-radius: 10px;
+      border: 2px solid #000;
+    }
+    @media (max-width: 900px) {
+      .recipe-top {
+        grid-template-columns: 1fr;
+      }
     }
     .footer {
       margin-top: 2rem;

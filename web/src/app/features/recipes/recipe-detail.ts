@@ -24,27 +24,30 @@ import { SharePanel } from './share-panel';
       <h1>Recipe not found</h1>
       <p>It may have been deleted.</p>
     } @else if (recipe(); as r) {
-      <header class="row">
-        <h1>{{ r.title }}</h1>
-        <div class="actions">
-          <a [routerLink]="['/recipes', r.id, 'edit']" class="button">Edit</a>
-          <button type="button" class="danger" (click)="remove(r)" [disabled]="deleting()">
-            Delete
-          </button>
+      <div class="recipe-top">
+        <div class="left">
+          <h1>{{ r.title }}</h1>
+          <div class="actions">
+            <a [routerLink]="['/recipes', r.id, 'edit']" class="button">Edit</a>
+            <button type="button" class="danger" (click)="remove(r)" [disabled]="deleting()">
+              Delete
+            </button>
+          </div>
+          <app-share-panel [recipe]="r" (changed)="recipe.set($event)" />
         </div>
-      </header>
 
-      <app-image-drop-zone
-        [imageUrl]="photo.url()"
-        [busy]="uploading()"
-        (picked)="upload(r, $event)"
-        (removed)="removeImage(r)"
-      />
-      @if (imageError()) {
-        <p class="error" role="alert">{{ imageError() }}</p>
-      }
-
-      <app-share-panel [recipe]="r" (changed)="recipe.set($event)" />
+        <div class="right">
+          <app-image-drop-zone
+            [imageUrl]="photo.url()"
+            [busy]="uploading()"
+            (picked)="upload(r, $event)"
+            (removed)="removeImage(r)"
+          />
+          @if (imageError()) {
+            <p class="error" role="alert">{{ imageError() }}</p>
+          }
+        </div>
+      </div>
 
       <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
 
@@ -54,8 +57,19 @@ import { SharePanel } from './share-panel';
     }
   `,
   styles: `
+    .recipe-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 404px;
+      gap: 1.5rem;
+      align-items: start;
+    }
     h1 {
       margin: 0.5rem 0 1rem;
+    }
+    @media (max-width: 900px) {
+      .recipe-top {
+        grid-template-columns: 1fr;
+      }
     }
     .danger {
       color: var(--error);
