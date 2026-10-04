@@ -3,6 +3,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
 import { Recipe, RecipesApi } from './recipes.api';
+import { RecipeExport } from './import/recipe-export';
 import { RecipePhoto } from './recipe-photo';
 
 const PAGE_SIZE = 24;
@@ -14,7 +15,13 @@ const PAGE_SIZE = 24;
   template: `
     <header class="row">
       <h1>My recipes</h1>
-      <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      <div class="actions">
+        <a routerLink="/recipes/import" class="button">Import</a>
+        <button type="button" (click)="export()" [disabled]="exporting() || !total()">
+          {{ exporting() ? 'Exporting…' : 'Export' }}
+        </button>
+        <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      </div>
     </header>
 
     @if (error()) {
@@ -59,7 +66,10 @@ const PAGE_SIZE = 24;
       } @else {
         <div class="empty">
           <p>Your recipe box is empty.</p>
-          <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+          <div class="actions center">
+            <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+            <a routerLink="/recipes/import" class="button">Import recipes</a>
+          </div>
         </div>
       }
 
@@ -115,6 +125,9 @@ const PAGE_SIZE = 24;
         display: none;
       }
     }
+    .center {
+      justify-content: center;
+    }
     .empty {
       text-align: center;
       padding: 2rem 0;
@@ -131,6 +144,7 @@ const PAGE_SIZE = 24;
 export class RecipeList implements OnInit {
   private readonly api = inject(RecipesApi);
   private readonly router = inject(Router);
+  private readonly exporter = inject(RecipeExport);
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly recipes = signal<Recipe[]>([]);
@@ -138,9 +152,23 @@ export class RecipeList implements OnInit {
   protected readonly offset = signal(0);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly exporting = signal(false);
 
   ngOnInit(): void {
     this.go(0);
+  }
+
+  /** Downloads every recipe as a Recipe Box file that Import reads back. */
+  protected async export(): Promise<void> {
+    this.exporting.set(true);
+    this.error.set(null);
+    try {
+      await this.exporter.download();
+    } catch {
+      this.error.set('Export failed. Try again.');
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   /** The whole row opens the recipe; the title link is there for keyboards. */

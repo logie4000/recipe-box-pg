@@ -20,6 +20,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/recipes/recipe-form').then((m) => m.RecipeForm),
       },
       {
+        path: 'import',
+        loadComponent: () =>
+          import('./features/recipes/import/recipe-import').then((m) => m.RecipeImport),
+      },
+      {
         path: ':id',
         loadComponent: () => import('./features/recipes/recipe-detail').then((m) => m.RecipeDetail),
       },
