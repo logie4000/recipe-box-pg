@@ -42,7 +42,9 @@ describe('SharePanel', () => {
     const changed = vi.fn();
     fixture.componentInstance.changed.subscribe(changed);
     const el = fixture.nativeElement as HTMLElement;
-    expect(el.textContent).toContain('Only you can see this recipe');
+    expect(el.querySelector('.switch')?.getAttribute('title')).toContain(
+      'Only you can see this recipe',
+    );
     expect(el.querySelector('input[readonly]')).toBeNull();
 
     const toggle = el.querySelector<HTMLInputElement>('input[type="checkbox"]')!;

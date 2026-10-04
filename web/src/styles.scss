@@ -24,6 +24,11 @@
   box-sizing: border-box;
 }
 
+// Keep [hidden] hidden even on elements given a display below (inputs).
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);

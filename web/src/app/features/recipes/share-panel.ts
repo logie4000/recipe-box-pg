@@ -11,8 +11,15 @@ import { Recipe, RecipesApi } from './recipes.api';
 @Component({
   selector: 'app-share-panel',
   template: `
-    <section class="share" [class.on]="recipe().is_public">
-      <label class="switch">
+    <div class="bar">
+      <label
+        class="switch"
+        [title]="
+          recipe().is_public
+            ? 'Anyone with the link can view this recipe.'
+            : 'Only you can see this recipe.'
+        "
+      >
         <input
           #toggleBox
           type="checkbox"
@@ -21,60 +28,94 @@ import { Recipe, RecipesApi } from './recipes.api';
           [disabled]="saving()"
           (change)="toggle(toggleBox)"
         />
-        <span>
-          <strong>{{ recipe().is_public ? 'Shared' : 'Private' }}</strong>
-          <span class="muted">
-            {{
-              recipe().is_public
-                ? 'Anyone with the link can view this recipe.'
-                : 'Only you can see this recipe.'
-            }}
-          </span>
-        </span>
+        <span class="track" aria-hidden="true"><span class="knob"></span></span>
+        <span class="state">{{ recipe().is_public ? 'Shared' : 'Private' }}</span>
       </label>
+      <span class="spacer"></span>
+      <ng-content />
+    </div>
 
-      @if (recipe().is_public) {
-        <div class="link">
-          <input
-            type="text"
-            readonly
-            [value]="link()"
-            aria-label="Share link"
-            #box
-            (focus)="box.select()"
-          />
-          <button type="button" (click)="copy()">{{ copied() ? 'Copied!' : 'Copy link' }}</button>
-        </div>
-      }
-      @if (error()) {
-        <p class="error" role="alert">{{ error() }}</p>
-      }
-    </section>
+    @if (recipe().is_public) {
+      <div class="link">
+        <input
+          type="text"
+          readonly
+          [value]="link()"
+          aria-label="Share link"
+          #box
+          (focus)="box.select()"
+        />
+        <button type="button" (click)="copy()">{{ copied() ? 'Copied!' : 'Copy link' }}</button>
+      </div>
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
   `,
   styles: `
-    .share {
-      border: 2px solid #000;
-      background: var(--panel);
-      padding: 0.75rem 1rem;
-      margin: 1rem 0;
+    :host {
+      display: block;
+      margin: 0 0 1rem;
     }
-    .share.on {
-      background: #e3f4fc;
+    .bar {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .spacer {
+      flex: 1;
     }
     .switch {
-      display: flex;
-      gap: 0.75rem;
+      display: inline-flex;
+      gap: 0.5rem;
       align-items: center;
       margin: 0;
       cursor: pointer;
     }
+    /* The real checkbox stays focusable and clickable, just invisible over the track. */
     .switch input {
-      width: auto;
+      position: absolute;
+      opacity: 0;
+      width: 2.75rem;
+      height: 1.5rem;
       margin: 0;
-      transform: scale(1.3);
+      cursor: pointer;
     }
-    .switch strong {
-      margin-right: 0.5rem;
+    .track {
+      position: relative;
+      width: 2.75rem;
+      height: 1.5rem;
+      border: 2px solid #000;
+      border-radius: 999px;
+      background: var(--border);
+      transition: background 0.15s;
+    }
+    .knob {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid #000;
+      transition: transform 0.15s;
+    }
+    input:checked + .track {
+      background: var(--menu);
+    }
+    input:checked + .track .knob {
+      transform: translateX(1.25rem);
+    }
+    input:focus-visible + .track {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    input:disabled + .track {
+      opacity: 0.5;
+    }
+    .state {
+      font-weight: 700;
     }
     .link {
       display: flex;
