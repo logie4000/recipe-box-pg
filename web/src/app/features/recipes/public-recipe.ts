@@ -18,12 +18,7 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
     @if (recipe(); as r) {
       <article>
         <div class="recipe-top">
-          <div>
-            <h1>{{ r.title }}</h1>
-            @if (r.notes) {
-              <p class="notes">{{ r.notes }}</p>
-            }
-          </div>
+          <h1>{{ r.title }}</h1>
           @if (r.image_key && !imageFailed()) {
             <img
               class="photo"
@@ -31,6 +26,9 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
               alt="Photo of the finished dish"
               (error)="imageFailed.set(true)"
             />
+          }
+          @if (r.notes) {
+            <p class="notes">{{ r.notes }}</p>
           }
         </div>
         <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
@@ -57,24 +55,39 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
       display: grid;
       /* 400px panel beside a 600px photo; both shrink in proportion when narrower. */
       grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        'panel photo'
+        'notes photo';
       max-width: calc(1000px + 1.5rem);
-      gap: 1.5rem;
+      column-gap: 1.5rem;
       align-items: start;
+    }
+    h1 {
+      grid-area: panel;
+    }
+    .notes {
+      grid-area: notes;
     }
     .notes {
       font-family: var(--font-type);
       white-space: pre-line;
     }
     .photo {
+      grid-area: photo;
       display: block;
       width: 100%;
       max-height: 40rem;
       object-fit: cover;
       border: 2px solid #000;
     }
+    /* Narrow: panel, then photo, then notes, all above the black rule. */
     @media (max-width: 900px) {
       .recipe-top {
         grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        grid-template-areas: 'panel' 'photo' 'notes';
+        row-gap: 1rem;
       }
     }
     .footer {

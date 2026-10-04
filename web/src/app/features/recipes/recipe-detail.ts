@@ -54,9 +54,6 @@ import { SharePanel } from './share-panel';
               </svg>
             </button>
           </app-share-panel>
-          @if (r.notes) {
-            <p class="notes">{{ r.notes }}</p>
-          }
         </div>
 
         <div class="right">
@@ -70,6 +67,10 @@ import { SharePanel } from './share-panel';
             <p class="error" role="alert">{{ imageError() }}</p>
           }
         </div>
+
+        @if (r.notes) {
+          <p class="notes">{{ r.notes }}</p>
+        }
       </div>
 
       <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
@@ -84,9 +85,22 @@ import { SharePanel } from './share-panel';
       display: grid;
       /* 400px panel beside a 600px photo; both shrink in proportion when narrower. */
       grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        'panel photo'
+        'notes photo';
       max-width: calc(1000px + 1.5rem);
-      gap: 1.5rem;
+      column-gap: 1.5rem;
       align-items: start;
+    }
+    .left {
+      grid-area: panel;
+    }
+    .right {
+      grid-area: photo;
+    }
+    .notes {
+      grid-area: notes;
     }
     .notes {
       font-family: var(--font-type);
@@ -96,9 +110,13 @@ import { SharePanel } from './share-panel';
     h1 {
       margin: 0.5rem 0 1rem;
     }
+    /* Narrow: panel, then photo, then notes, all above the black rule. */
     @media (max-width: 900px) {
       .recipe-top {
         grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        grid-template-areas: 'panel' 'photo' 'notes';
+        row-gap: 1rem;
       }
     }
     .icon {
