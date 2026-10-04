@@ -4,7 +4,7 @@ import { Component, input } from '@angular/core';
 @Component({
   selector: 'app-recipe-body',
   template: `
-    <section class="ingredients-col">
+    <section>
       <h2>Ingredients</h2>
       @if (ingredients().length) {
         <ul class="ingredients">
@@ -33,8 +33,8 @@ import { Component, input } from '@angular/core';
   styles: `
     /*
      * Same columns as the title panel and photo above (400px : 600px), so
-     * Directions lines up with the photo. Ingredients hug the right edge of
-     * their column, next to the directions.
+     * Directions lines up with the photo. A heavy black rule separates
+     * them from the title panel and photo.
      */
     :host {
       display: grid;
@@ -42,10 +42,9 @@ import { Component, input } from '@angular/core';
       gap: 1.5rem;
       max-width: calc(1000px + 1.5rem);
       margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 5px solid #000;
       font-family: var(--font-type);
-    }
-    .ingredients-col {
-      text-align: right;
     }
     h2 {
       font-size: 2rem;
@@ -71,9 +70,6 @@ import { Component, input } from '@angular/core';
       :host {
         grid-template-columns: 1fr;
         gap: 1rem;
-      }
-      .ingredients-col {
-        text-align: left;
       }
     }
   `,
