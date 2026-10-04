@@ -11,6 +11,7 @@ const recipe: Recipe = {
   title: 'Soup',
   ingredients: [],
   directions: [],
+  notes: '',
   image_key: null,
   is_public: false,
   created_at: '',

@@ -18,7 +18,12 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
     @if (recipe(); as r) {
       <article>
         <div class="recipe-top">
-          <h1>{{ r.title }}</h1>
+          <div>
+            <h1>{{ r.title }}</h1>
+            @if (r.notes) {
+              <p class="notes">{{ r.notes }}</p>
+            }
+          </div>
           @if (r.image_key && !imageFailed()) {
             <img
               class="photo"
@@ -50,15 +55,17 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
   styles: `
     .recipe-top {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: repeat(2, minmax(0, 606px));
       gap: 1.5rem;
       align-items: start;
     }
+    .notes {
+      white-space: pre-line;
+    }
     .photo {
       display: block;
-      width: 404px;
-      max-width: 100%;
-      max-height: 28rem;
+      width: 100%;
+      max-height: 40rem;
       object-fit: cover;
       border: 2px solid #000;
     }

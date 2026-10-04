@@ -58,7 +58,7 @@ describe('RecipeForm', () => {
     const req = backend.expectOne('/api/v1/recipes');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
-      recipe: { title: 'Soup', ingredients: ['1 onion'], directions: ['Chop'] },
+      recipe: { title: 'Soup', ingredients: ['1 onion'], directions: ['Chop'], notes: '' },
     });
     req.flush({ id: 9, recipe: {} });
     expect(navigate).toHaveBeenCalledWith(['/recipes', 9], {});

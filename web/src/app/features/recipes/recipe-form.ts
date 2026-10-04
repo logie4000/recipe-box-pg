@@ -25,9 +25,10 @@ import { Recipe, RecipesApi, RecipeWriteResult } from './recipes.api';
 
 type ListName = 'ingredients' | 'directions';
 
-/** Matches Recipe::MAX_ITEMS and MAX_ITEM_LENGTH in the write-api. */
+/** Matches Recipe::MAX_ITEMS, MAX_ITEM_LENGTH and MAX_NOTES_LENGTH in the write-api. */
 const MAX_ITEMS = 200;
 const MAX_ITEM_LENGTH = 2000;
+const MAX_NOTES_LENGTH = 10000;
 
 /**
  * New recipe (/recipes/new) or edit (/recipes/:id/edit): title, ingredients
@@ -162,6 +163,20 @@ const MAX_ITEM_LENGTH = 2000;
           }
         </fieldset>
 
+        <fieldset>
+          <legend>Notes</legend>
+          <textarea
+            formControlName="notes"
+            rows="4"
+            [maxlength]="maxNotesLength"
+            placeholder="Tips, substitutions, where the recipe came from"
+            aria-label="Notes"
+          ></textarea>
+          @if (serverErrors()['notes']; as msgs) {
+            <p class="error">Notes {{ msgs.join(', ') }}</p>
+          }
+        </fieldset>
+
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
         }
@@ -224,11 +239,13 @@ export class RecipeForm implements OnInit {
 
   protected readonly maxItems = MAX_ITEMS;
   protected readonly maxItemLength = MAX_ITEM_LENGTH;
+  protected readonly maxNotesLength = MAX_NOTES_LENGTH;
 
   protected readonly form = this.fb.group({
     title: ['', [Validators.required, Validators.maxLength(200)]],
     ingredients: this.fb.array([this.item()]),
     directions: this.fb.array([this.item()]),
+    notes: ['', Validators.maxLength(MAX_NOTES_LENGTH)],
   });
 
   /** What the drop zone shows: the saved photo, or the one picked but not yet uploaded. */
@@ -328,6 +345,7 @@ export class RecipeForm implements OnInit {
       title: value.title.trim(),
       ingredients: value.ingredients.map((s) => s.trim()).filter(Boolean),
       directions: value.directions.map((s) => s.trim()).filter(Boolean),
+      notes: value.notes.trim(),
     };
     const id = this.id();
     const saved$ = id ? this.api.update(Number(id), body) : this.api.create(body);
@@ -374,6 +392,7 @@ export class RecipeForm implements OnInit {
       (items.length ? items : ['']).forEach((s) => arr.push(this.item(s)));
     };
     this.form.controls.title.setValue(r.title);
+    this.form.controls.notes.setValue(r.notes);
     fillList(this.ingredients, r.ingredients);
     fillList(this.directions, r.directions);
     this.hadPhoto = !!r.image_key;

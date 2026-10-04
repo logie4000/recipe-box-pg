@@ -39,12 +39,14 @@ describe('PublicRecipePage', () => {
       title: 'Soup',
       ingredients: ['1 onion'],
       directions: ['Chop', 'Simmer'],
+      notes: 'Better the next day.',
       image_key: 'recipes/abcdefghijklmnopqrstuvwx.jpg',
     });
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('h1')?.textContent).toContain('Soup');
     expect(el.querySelectorAll('ol li').length).toBe(2);
+    expect(el.querySelector('.notes')?.textContent).toContain('Better the next day.');
     expect(el.querySelector('img')?.getAttribute('src')).toBe(
       '/api/v1/public/recipes/k7Xq2mP9vR4t/image',
     );

@@ -11,6 +11,7 @@ export interface Recipe {
   title: string;
   ingredients: string[];
   directions: string[];
+  notes: string;
   image_key: string | null;
   is_public: boolean;
   created_at: string;
@@ -20,7 +21,14 @@ export interface Recipe {
 /** A shared recipe, read without login. No id and no owner. */
 export type PublicRecipe = Pick<
   Recipe,
-  'public_id' | 'title' | 'ingredients' | 'directions' | 'image_key' | 'created_at' | 'updated_at'
+  | 'public_id'
+  | 'title'
+  | 'ingredients'
+  | 'directions'
+  | 'notes'
+  | 'image_key'
+  | 'created_at'
+  | 'updated_at'
 >;
 
 export interface Page<T> {
@@ -30,7 +38,7 @@ export interface Page<T> {
   offset: number;
 }
 
-export type RecipeInput = Pick<Recipe, 'title' | 'ingredients' | 'directions'> &
+export type RecipeInput = Pick<Recipe, 'title' | 'ingredients' | 'directions' | 'notes'> &
   Partial<Pick<Recipe, 'is_public'>>;
 
 export interface RecipeWriteResult {

@@ -106,7 +106,8 @@ CREATE TABLE public.recipes (
     is_public boolean DEFAULT false NOT NULL,
     public_id character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    notes text DEFAULT ''::text NOT NULL
 );
 
 ALTER TABLE ONLY public.recipes FORCE ROW LEVEL SECURITY;
@@ -1195,6 +1196,7 @@ CREATE POLICY recipes_public_read ON public.recipes FOR SELECT USING (is_public)
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261004180000'),
 ('20261003150000'),
 ('20260929160004'),
 ('20260929160003'),

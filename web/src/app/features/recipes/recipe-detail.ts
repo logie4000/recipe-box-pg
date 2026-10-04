@@ -54,6 +54,9 @@ import { SharePanel } from './share-panel';
               </svg>
             </button>
           </app-share-panel>
+          @if (r.notes) {
+            <p class="notes">{{ r.notes }}</p>
+          }
         </div>
 
         <div class="right">
@@ -79,9 +82,14 @@ import { SharePanel } from './share-panel';
   styles: `
     .recipe-top {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 404px;
+      /* Photo and the panel beside it are both up to 606px; they shrink together. */
+      grid-template-columns: repeat(2, minmax(0, 606px));
       gap: 1.5rem;
       align-items: start;
+    }
+    .notes {
+      margin: 0;
+      white-space: pre-line;
     }
     h1 {
       margin: 0.5rem 0 1rem;

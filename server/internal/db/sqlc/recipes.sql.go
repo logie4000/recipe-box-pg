@@ -25,7 +25,7 @@ func (q *Queries) CountRecipes(ctx context.Context, ownerSub string) (int64, err
 }
 
 const getPublicRecipe = `-- name: GetPublicRecipe :one
-SELECT public_id, title, ingredients, directions, image_key, created_at, updated_at
+SELECT public_id, title, ingredients, directions, notes, image_key, created_at, updated_at
 FROM recipes
 WHERE public_id = $1 AND is_public
 `
@@ -35,6 +35,7 @@ type GetPublicRecipeRow struct {
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
+	Notes       string      `json:"notes"`
 	ImageKey    pgtype.Text `json:"image_key"`
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
@@ -48,6 +49,7 @@ func (q *Queries) GetPublicRecipe(ctx context.Context, publicID string) (GetPubl
 		&i.Title,
 		&i.Ingredients,
 		&i.Directions,
+		&i.Notes,
 		&i.ImageKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -68,7 +70,7 @@ func (q *Queries) GetPublicRecipeImageKey(ctx context.Context, publicID string) 
 }
 
 const getRecipe = `-- name: GetRecipe :one
-SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, notes, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE id = $1 AND owner_sub = $2
 `
@@ -84,6 +86,7 @@ type GetRecipeRow struct {
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
+	Notes       string      `json:"notes"`
 	ImageKey    pgtype.Text `json:"image_key"`
 	IsPublic    bool        `json:"is_public"`
 	CreatedAt   time.Time   `json:"created_at"`
@@ -99,6 +102,7 @@ func (q *Queries) GetRecipe(ctx context.Context, arg GetRecipeParams) (GetRecipe
 		&i.Title,
 		&i.Ingredients,
 		&i.Directions,
+		&i.Notes,
 		&i.ImageKey,
 		&i.IsPublic,
 		&i.CreatedAt,
@@ -125,7 +129,7 @@ func (q *Queries) GetRecipeImageKey(ctx context.Context, arg GetRecipeImageKeyPa
 }
 
 const listRecipes = `-- name: ListRecipes :many
-SELECT id, public_id, title, ingredients, directions, image_key, is_public, created_at, updated_at
+SELECT id, public_id, title, ingredients, directions, notes, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE owner_sub = $1
 ORDER BY created_at DESC, id DESC
@@ -144,6 +148,7 @@ type ListRecipesRow struct {
 	Title       string      `json:"title"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
+	Notes       string      `json:"notes"`
 	ImageKey    pgtype.Text `json:"image_key"`
 	IsPublic    bool        `json:"is_public"`
 	CreatedAt   time.Time   `json:"created_at"`
@@ -165,6 +170,7 @@ func (q *Queries) ListRecipes(ctx context.Context, arg ListRecipesParams) ([]Lis
 			&i.Title,
 			&i.Ingredients,
 			&i.Directions,
+			&i.Notes,
 			&i.ImageKey,
 			&i.IsPublic,
 			&i.CreatedAt,
