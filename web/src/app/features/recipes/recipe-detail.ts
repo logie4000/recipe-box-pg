@@ -82,8 +82,9 @@ import { SharePanel } from './share-panel';
   styles: `
     .recipe-top {
       display: grid;
-      /* Photo and the panel beside it are both up to 606px; they shrink together. */
-      grid-template-columns: repeat(2, minmax(0, 606px));
+      /* 400px panel beside a 600px photo; both shrink in proportion when narrower. */
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      max-width: calc(1000px + 1.5rem);
       gap: 1.5rem;
       align-items: start;
     }

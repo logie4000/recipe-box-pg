@@ -55,7 +55,9 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
   styles: `
     .recipe-top {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 606px));
+      /* 400px panel beside a 600px photo; both shrink in proportion when narrower. */
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      max-width: calc(1000px + 1.5rem);
       gap: 1.5rem;
       align-items: start;
     }
