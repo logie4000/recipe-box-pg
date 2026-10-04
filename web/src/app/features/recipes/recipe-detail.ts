@@ -89,6 +89,7 @@ import { SharePanel } from './share-panel';
       align-items: start;
     }
     .notes {
+      font-family: var(--font-type);
       margin: 0;
       white-space: pre-line;
     }

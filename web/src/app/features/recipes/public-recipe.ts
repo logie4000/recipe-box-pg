@@ -62,6 +62,7 @@ import { PublicRecipe, RecipesApi } from './recipes.api';
       align-items: start;
     }
     .notes {
+      font-family: var(--font-type);
       white-space: pre-line;
     }
     .photo {
