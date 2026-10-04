@@ -138,3 +138,16 @@ as a blob; the public page uses the public URL directly.
   real schema, covering per-owner listing, RLS when a query asks for another
   owner's rows, and public versus private reads without a user
   (testcontainers, needs Docker).
+
+## Import and export
+
+`/recipes/import` reads a dropped file or pasted text in the browser: a
+Recipe Box export, schema.org Recipe data (a JSON-LD file or a saved web
+page), or plain text with Ingredients / Directions / Notes sections. The
+chosen recipes are saved through `POST /api/v1/recipes`, private and without
+a photo. Export (on the list page) downloads every recipe as a Recipe Box
+file, `{format: "recipe-box", version: 1, recipes: [{title, ingredients, directions, notes}]}`.
+
+To move recipes from the original Recipe Box (teapothill.org), which has no
+export of its own, run `node tools/old-recipe-box-export.mjs [API_BASE]` and
+import the file it writes. See the script for the API_BASE to use.
