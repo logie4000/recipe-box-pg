@@ -1,10 +1,8 @@
 import { inject, Injectable } from '@angular/core';
-import { EMPTY, expand, firstValueFrom, map, reduce } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 
-import { Recipe, RecipesApi } from '../recipes.api';
+import { RecipesApi } from '../recipes.api';
 import { RECIPE_BOX_FORMAT } from './recipe-import-parse';
-
-const PAGE = 100;
 
 /**
  * Downloads all of the user's recipes as one JSON file in Recipe Box's own
@@ -16,17 +14,7 @@ export class RecipeExport {
   private readonly api = inject(RecipesApi);
 
   async download(): Promise<number> {
-    const recipes = await firstValueFrom(
-      this.api.list(PAGE, 0).pipe(
-        expand((page) =>
-          page.offset + page.items.length < page.total && page.items.length
-            ? this.api.list(PAGE, page.offset + page.items.length)
-            : EMPTY,
-        ),
-        map((page) => page.items),
-        reduce((all: Recipe[], items) => all.concat(items), []),
-      ),
-    );
+    const recipes = await firstValueFrom(this.api.listAll());
 
     const file = {
       format: RECIPE_BOX_FORMAT,

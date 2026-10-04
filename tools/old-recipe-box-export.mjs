@@ -16,7 +16,7 @@
 
 import { writeFile } from 'node:fs/promises';
 
-const base = (process.argv[2] ?? 'https://www.teapothill.org/billsgalley/api').replace(/\/+$/, '');
+const base = (process.argv[2] ?? 'https://www.teapothill.org/recipe-box/api').replace(/\/+$/, '');
 const out = process.argv[3] ?? 'old-recipe-box.json';
 
 async function get(path) {

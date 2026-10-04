@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 
 import { RecipesApi } from '../recipes.api';
+import { DuplicateKind, findDuplicates } from './duplicates';
 import { ImportedRecipe, ImportError, parseImport, ParseResult } from './recipe-import-parse';
 
 /** Bigger than any sensible recipe file; keeps a stray video out of the parser. */
@@ -12,6 +13,7 @@ const MAX_FILE_BYTES = 5 * 1024 * 1024;
 interface Row {
   recipe: ImportedRecipe;
   selected: boolean;
+  duplicate: DuplicateKind | null;
   /** Set once saving it was tried. */
   savedId?: number;
   error?: string;
@@ -66,7 +68,9 @@ interface Row {
         Or paste a recipe
         <textarea #pasted rows="12" [placeholder]="example" data-testid="import-text"></textarea>
       </label>
-      <button type="button" (click)="read(pasted.value)">Preview</button>
+      <button type="button" (click)="read(pasted.value)" [disabled]="checking()">
+        {{ checking() ? 'Checking your recipes…' : 'Preview' }}
+      </button>
 
       @if (error()) {
         <p class="error" role="alert">{{ error() }}</p>
@@ -78,7 +82,16 @@ interface Row {
         @if (skipped()) {
           <span class="muted">{{ skipped() }} left out (no title, or more than 500).</span>
         }
+        @if (duplicateCount()) {
+          {{ duplicateCount() }} you already have
+          {{ duplicateCount() === 1 ? 'is' : 'are' }} unticked.
+        }
       </p>
+      @if (checkFailed()) {
+        <p class="error" role="alert">
+          Couldn't check which of these you already have, so duplicates aren't marked.
+        </p>
+      }
 
       <table class="list">
         <thead>
@@ -126,6 +139,8 @@ interface Row {
                   <a [routerLink]="['/recipes', row.savedId]">Saved</a>
                 } @else if (row.error) {
                   <span class="error">{{ row.error }}</span>
+                } @else if (row.duplicate) {
+                  <span class="muted">{{ duplicateLabel[row.duplicate] }}</span>
                 }
               </td>
             </tr>
@@ -229,10 +244,21 @@ export class RecipeImport {
   protected readonly busy = signal(false);
   protected readonly done = signal(false);
   protected readonly progress = signal(0);
+  protected readonly checking = signal(false);
+  protected readonly checkFailed = signal(false);
+
+  protected readonly duplicateLabel: Record<DuplicateKind, string> = {
+    exists: 'Already in your box',
+    'in-file': 'Repeated in this file',
+    'same-title': 'Same title as one you have, different contents',
+  };
 
   protected readonly selectedCount = computed(() => this.rows().filter((r) => r.selected).length);
   protected readonly savedCount = computed(() => this.rows().filter((r) => r.savedId).length);
   protected readonly allSelected = computed(() => this.rows().every((r) => r.selected));
+  protected readonly duplicateCount = computed(
+    () => this.rows().filter((r) => r.duplicate === 'exists' || r.duplicate === 'in-file').length,
+  );
   protected readonly sourceLabel = computed(
     () =>
       ({
@@ -269,19 +295,45 @@ export class RecipeImport {
       this.error.set('That file is too big to be a recipe file (the limit is 5 MB).');
       return;
     }
-    this.read(await file.text());
+    await this.read(await file.text());
   }
 
-  protected read(text: string): void {
+  /**
+   * Parses, then compares with the recipes already in the box: exact copies
+   * (and repeats within the file) start unticked; a recipe that only shares a
+   * title stays ticked but is marked, since it may be another version.
+   */
+  protected async read(text: string): Promise<void> {
     this.error.set(null);
+    this.checkFailed.set(false);
+    let result: ParseResult;
     try {
-      const result = parseImport(text);
-      this.source.set(result.source);
-      this.skipped.set(result.skipped);
-      this.rows.set(result.recipes.map((recipe) => ({ recipe, selected: true })));
+      result = parseImport(text);
     } catch (e) {
       this.error.set(e instanceof ImportError ? e.message : 'That could not be read.');
+      return;
     }
+
+    this.checking.set(true);
+    let duplicates: (DuplicateKind | null)[];
+    try {
+      duplicates = findDuplicates(result.recipes, await firstValueFrom(this.api.listAll()));
+    } catch {
+      this.checkFailed.set(true);
+      duplicates = findDuplicates(result.recipes, []);
+    } finally {
+      this.checking.set(false);
+    }
+
+    this.source.set(result.source);
+    this.skipped.set(result.skipped);
+    this.rows.set(
+      result.recipes.map((recipe, i) => ({
+        recipe,
+        duplicate: duplicates[i],
+        selected: duplicates[i] !== 'exists' && duplicates[i] !== 'in-file',
+      })),
+    );
   }
 
   protected toggle(index: number, selected: boolean): void {
@@ -320,6 +372,7 @@ export class RecipeImport {
     this.source.set(null);
     this.skipped.set(0);
     this.error.set(null);
+    this.checkFailed.set(false);
     this.done.set(false);
   }
 }
