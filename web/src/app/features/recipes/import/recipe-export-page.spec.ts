@@ -14,6 +14,7 @@ const recipe = (id: number, title: string) => ({
   directions: [],
   notes: '',
   image_key: null,
+  author_name: null,
   is_public: false,
   created_at: '2026-10-01T00:00:00Z',
   updated_at: '2026-10-01T00:00:00Z',

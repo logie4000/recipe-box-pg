@@ -133,22 +133,6 @@ import { SharePanel } from './share-panel';
         row-gap: 1rem;
       }
     }
-    .icon {
-      display: inline-grid;
-      place-items: center;
-      width: 2.25rem;
-      height: 2.25rem;
-      padding: 0;
-    }
-    .icon svg {
-      width: 1.25rem;
-      height: 1.25rem;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
     .danger {
       color: var(--error);
     }

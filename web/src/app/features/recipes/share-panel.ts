@@ -65,55 +65,6 @@ import { Recipe, RecipesApi } from './recipes.api';
     .spacer {
       flex: 1;
     }
-    .switch {
-      display: inline-flex;
-      gap: 0.5rem;
-      align-items: center;
-      margin: 0;
-      cursor: pointer;
-    }
-    /* The real checkbox stays focusable and clickable, just invisible over the track. */
-    .switch input {
-      position: absolute;
-      opacity: 0;
-      width: 2.75rem;
-      height: 1.5rem;
-      margin: 0;
-      cursor: pointer;
-    }
-    .track {
-      position: relative;
-      width: 2.75rem;
-      height: 1.5rem;
-      border: 2px solid #000;
-      border-radius: 999px;
-      background: var(--border);
-      transition: background 0.15s;
-    }
-    .knob {
-      position: absolute;
-      top: 1px;
-      left: 1px;
-      width: 1.1rem;
-      height: 1.1rem;
-      border-radius: 50%;
-      background: #fff;
-      border: 1px solid #000;
-      transition: transform 0.15s;
-    }
-    input:checked + .track {
-      background: var(--menu);
-    }
-    input:checked + .track .knob {
-      transform: translateX(1.25rem);
-    }
-    input:focus-visible + .track {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    input:disabled + .track {
-      opacity: 0.5;
-    }
     .state {
       font-weight: 700;
     }

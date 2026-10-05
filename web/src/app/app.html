@@ -16,6 +16,8 @@
     <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
     @if (auth.isAuthenticated()) {
       <a routerLink="/recipes" routerLinkActive="active">Recipes</a>
+      <a routerLink="/public" routerLinkActive="active">Public</a>
+      <a routerLink="/saved" routerLinkActive="active">Saved</a>
       <a routerLink="/notes" routerLinkActive="active">Notes</a>
     }
   </nav>
