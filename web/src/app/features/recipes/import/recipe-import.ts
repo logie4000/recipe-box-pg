@@ -32,7 +32,7 @@ interface Row {
   selector: 'app-recipe-import',
   imports: [RouterLink, ImportRecipeEditor],
   template: `
-    <p><a routerLink="/recipes">← My recipes</a></p>
+    <p><a routerLink="/recipes">← My Recipes</a></p>
     <h1>Import recipes</h1>
 
     @if (!rows().length) {

@@ -13,7 +13,7 @@ import { RecipeExport } from './recipe-export';
   selector: 'app-recipe-export-page',
   imports: [RouterLink, DatePipe],
   template: `
-    <p><a routerLink="/recipes">← My recipes</a></p>
+    <p><a routerLink="/recipes">← My Recipes</a></p>
     <h1>Export recipes</h1>
 
     @if (error()) {
