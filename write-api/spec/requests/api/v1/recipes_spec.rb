@@ -24,13 +24,15 @@ RSpec.describe "/api/v1/recipes" do
   describe "create" do
     it "stores the recipe for the caller, tidying the lists" do
       post "/api/v1/recipes", headers: alice, as: :json, params: {
-        recipe: { title: "Soup", ingredients: [ " 1 onion ", "", "2 carrots" ], directions: [ "Chop", "  " ] }
+        recipe: { title: "Soup", ingredients: [ " 1 onion ", "", "2 carrots" ], directions: [ "Chop", "  " ],
+                  notes: "  Better the next day.
+" }
       }
 
       expect(response).to have_http_status(:created)
       body = response.parsed_body["recipe"]
       expect(body).to include("title" => "Soup", "ingredients" => [ "1 onion", "2 carrots" ], "directions" => [ "Chop" ],
-                              "is_public" => false, "image_key" => nil)
+                              "notes" => "Better the next day.", "is_public" => false, "image_key" => nil)
       expect(body).not_to have_key("owner_sub")
       expect(body["public_id"]).to match(PUBLIC_ID_FORMAT)
       expect(as_owner("alice-sub") { Recipe.find(body["id"]).owner_sub }).to eq("alice-sub")
@@ -72,6 +74,15 @@ RSpec.describe "/api/v1/recipes" do
       recipe = Recipe.new(owner_sub: "alice-sub", title: "Soup")
       expect { as_owner("alice-sub") { recipe.save_with_unique_public_id } }.to raise_error(ActiveRecord::RecordNotUnique)
       expect(Recipe).to have_received(:generate_public_id).exactly(Recipe::PUBLIC_ID_ATTEMPTS).times
+    end
+
+    it "stores no notes as an empty string and rejects notes that are too long" do
+      post "/api/v1/recipes", headers: alice, as: :json, params: { recipe: { title: "Soup" } }
+      expect(response.parsed_body["recipe"]["notes"]).to eq("")
+
+      post "/api/v1/recipes", headers: alice, as: :json,
+           params: { recipe: { title: "Soup", notes: "x" * (Recipe::MAX_NOTES_LENGTH + 1) } }
+      expect(response).to have_http_status(:unprocessable_content)
     end
 
     it "rejects a missing title (422) and a missing body (400)" do

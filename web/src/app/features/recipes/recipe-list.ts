@@ -1,5 +1,6 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { Recipe, RecipesApi } from './recipes.api';
 import { RecipePhoto } from './recipe-photo';
@@ -9,7 +10,7 @@ const PAGE_SIZE = 24;
 /** The signed-in user's own recipes, newest first. Nobody else's ever show up here. */
 @Component({
   selector: 'app-recipe-list',
-  imports: [RouterLink, RecipePhoto],
+  imports: [RouterLink, DatePipe, RecipePhoto],
   template: `
     <header class="row">
       <h1>My recipes</h1>
@@ -23,30 +24,44 @@ const PAGE_SIZE = 24;
     @if (loading()) {
       <p>Loading…</p>
     } @else {
-      <ul class="grid">
-        @for (recipe of recipes(); track recipe.id) {
-          <li>
-            <a [routerLink]="['/recipes', recipe.id]" class="card">
-              <app-recipe-photo [recipeId]="recipe.id" [imageKey]="recipe.image_key" />
-              <span class="title">{{ recipe.title }}</span>
-              <span class="meta muted">
-                {{ recipe.ingredients.length }}
-                {{ recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }} ·
-                {{ recipe.directions.length }}
-                {{ recipe.directions.length === 1 ? 'step' : 'steps' }}
-                @if (recipe.is_public) {
-                  <span class="badge">Shared</span>
-                }
-              </span>
-            </a>
-          </li>
-        } @empty {
-          <li class="empty">
-            <p>Your recipe box is empty.</p>
-            <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
-          </li>
-        }
-      </ul>
+      @if (recipes().length) {
+        <table class="list">
+          <thead>
+            <tr>
+              <th class="thumb"><span class="visually-hidden">Photo</span></th>
+              <th>Title</th>
+              <th class="hide-narrow">Contents</th>
+              <th>Sharing</th>
+              <th class="hide-narrow">Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (recipe of recipes(); track recipe.id) {
+              <tr (click)="open(recipe)">
+                <td class="thumb">
+                  <app-recipe-photo [recipeId]="recipe.id" [imageKey]="recipe.image_key" />
+                </td>
+                <td>
+                  <a [routerLink]="['/recipes', recipe.id]" class="title">{{ recipe.title }}</a>
+                </td>
+                <td class="hide-narrow muted">
+                  {{ recipe.ingredients.length }}
+                  {{ recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }},
+                  {{ recipe.directions.length }}
+                  {{ recipe.directions.length === 1 ? 'step' : 'steps' }}
+                </td>
+                <td>{{ recipe.is_public ? 'Shared' : 'Private' }}</td>
+                <td class="hide-narrow muted">{{ recipe.updated_at | date: 'mediumDate' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <div class="empty">
+          <p>Your recipe box is empty.</p>
+          <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+        </div>
+      }
 
       @if (total() > pageSize) {
         <nav class="pager">
@@ -68,31 +83,39 @@ const PAGE_SIZE = 24;
     }
   `,
   styles: `
-    .grid {
-      list-style: none;
-      padding: 0;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
-      gap: 1rem;
+    tbody tr {
+      cursor: pointer;
     }
-    .card {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      color: inherit;
-      text-decoration: none;
+    .thumb {
+      width: 92px;
+      padding-right: 0;
     }
-    .card:hover .title {
-      color: var(--accent);
+    .thumb app-recipe-photo {
+      width: 80px;
+      border: 1px solid #000;
+      border-radius: 0;
     }
     .title {
-      font-weight: 600;
+      color: inherit;
+      font-weight: 700;
+      text-decoration: none;
     }
-    .meta {
-      font-size: 0.875rem;
+    tr:hover .title {
+      text-decoration: underline;
+    }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    @media (max-width: 720px) {
+      .hide-narrow {
+        display: none;
+      }
     }
     .empty {
-      grid-column: 1 / -1;
       text-align: center;
       padding: 2rem 0;
     }
@@ -107,6 +130,7 @@ const PAGE_SIZE = 24;
 })
 export class RecipeList implements OnInit {
   private readonly api = inject(RecipesApi);
+  private readonly router = inject(Router);
 
   protected readonly pageSize = PAGE_SIZE;
   protected readonly recipes = signal<Recipe[]>([]);
@@ -117,6 +141,11 @@ export class RecipeList implements OnInit {
 
   ngOnInit(): void {
     this.go(0);
+  }
+
+  /** The whole row opens the recipe; the title link is there for keyboards. */
+  protected open(recipe: Recipe): void {
+    void this.router.navigate(['/recipes', recipe.id]);
   }
 
   protected go(offset: number): void {

@@ -31,13 +31,33 @@ import { Component, input } from '@angular/core';
     </section>
   `,
   styles: `
+    /*
+     * Same columns as the title panel and photo above (400px : 600px), so
+     * Directions lines up with the photo. A heavy black rule separates
+     * them from the title panel and photo.
+     */
+    :host {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      gap: 1.5rem;
+      max-width: calc(1000px + 1.5rem);
+      margin-top: 1.5rem;
+      padding-top: 1.25rem;
+      border-top: 5px solid #000;
+      font-family: var(--font-type);
+    }
     h2 {
-      font-size: 1.15rem;
-      margin: 1.5rem 0 0.5rem;
+      font-size: 2rem;
+      margin: 0 0 0.75rem;
     }
     ul,
     ol {
       padding-left: 1.5rem;
+      margin: 0;
+    }
+    .ingredients {
+      list-style: none;
+      padding-left: 0;
     }
     li {
       margin-bottom: 0.35rem;
@@ -45,6 +65,12 @@ import { Component, input } from '@angular/core';
     }
     .directions li {
       margin-bottom: 0.75rem;
+    }
+    @media (max-width: 900px) {
+      :host {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
     }
   `,
 })

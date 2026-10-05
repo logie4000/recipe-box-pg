@@ -1,18 +1,17 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, inject, input, OnInit, signal } from '@angular/core';
+import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
-import { ImageDropZone } from './image-drop-zone';
-import { ObjectUrl } from './object-url';
 import { RecipeBody } from './recipe-body';
+import { RecipePhoto } from './recipe-photo';
 import { Recipe, RecipesApi } from './recipes.api';
 import { SharePanel } from './share-panel';
 
-/** One of the user's own recipes: photo drop zone, sharing, edit and delete. */
+/** One of the user's own recipes: photo, sharing, edit and delete. The photo is changed on the edit page. */
 @Component({
   selector: 'app-recipe-detail',
-  imports: [RouterLink, DatePipe, ImageDropZone, RecipeBody, SharePanel],
+  imports: [RouterLink, DatePipe, RecipeBody, RecipePhoto, SharePanel],
   template: `
     <p><a routerLink="/recipes">← My recipes</a></p>
 
@@ -24,27 +23,55 @@ import { SharePanel } from './share-panel';
       <h1>Recipe not found</h1>
       <p>It may have been deleted.</p>
     } @else if (recipe(); as r) {
-      <header class="row">
-        <h1>{{ r.title }}</h1>
-        <div class="actions">
-          <a [routerLink]="['/recipes', r.id, 'edit']" class="button">Edit</a>
-          <button type="button" class="danger" (click)="remove(r)" [disabled]="deleting()">
-            Delete
-          </button>
+      <div class="recipe-top">
+        <div class="left">
+          <h1>{{ r.title }}</h1>
+          <app-share-panel [recipe]="r" (changed)="recipe.set($event)">
+            <a
+              [routerLink]="['/recipes', r.id, 'edit']"
+              class="button icon"
+              title="Edit"
+              aria-label="Edit"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 20h4L19 9l-4-4L4 16v4z" />
+                <path d="M13.5 6.5l4 4" />
+              </svg>
+            </a>
+            <button
+              type="button"
+              class="icon danger"
+              title="Delete"
+              aria-label="Delete"
+              (click)="remove(r)"
+              [disabled]="deleting()"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M9 7V4h6v3" />
+                <path d="M6 7l1 13h10l1-13" />
+                <path d="M10 11v6M14 11v6" />
+              </svg>
+            </button>
+          </app-share-panel>
         </div>
-      </header>
 
-      <app-image-drop-zone
-        [imageUrl]="photo.url()"
-        [busy]="uploading()"
-        (picked)="upload(r, $event)"
-        (removed)="removeImage(r)"
-      />
-      @if (imageError()) {
-        <p class="error" role="alert">{{ imageError() }}</p>
-      }
+        <div class="right">
+          <app-recipe-photo
+            class="photo"
+            [recipeId]="r.id"
+            [imageKey]="r.image_key"
+            alt="Photo of the finished dish"
+          />
+          @if (imageError()) {
+            <p class="error" role="alert">{{ imageError() }}</p>
+          }
+        </div>
 
-      <app-share-panel [recipe]="r" (changed)="recipe.set($event)" />
+        @if (r.notes) {
+          <p class="notes">{{ r.notes }}</p>
+        }
+      </div>
 
       <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
 
@@ -54,11 +81,66 @@ import { SharePanel } from './share-panel';
     }
   `,
   styles: `
+    .recipe-top {
+      display: grid;
+      /* 400px panel beside a 600px photo; both shrink in proportion when narrower. */
+      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+      grid-template-rows: auto 1fr;
+      grid-template-areas:
+        'panel photo'
+        'notes photo';
+      max-width: calc(1000px + 1.5rem);
+      column-gap: 1.5rem;
+      align-items: start;
+    }
+    .left {
+      grid-area: panel;
+    }
+    .right {
+      grid-area: photo;
+    }
+    .notes {
+      grid-area: notes;
+    }
+    .notes {
+      font-family: var(--font-type);
+      margin: 0;
+      white-space: pre-line;
+    }
     h1 {
       margin: 0.5rem 0 1rem;
     }
+    /* Narrow: panel, then photo, then notes, all above the black rule. */
+    @media (max-width: 900px) {
+      .recipe-top {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+        grid-template-areas: 'panel' 'photo' 'notes';
+        row-gap: 1rem;
+      }
+    }
+    .icon {
+      display: inline-grid;
+      place-items: center;
+      width: 2.25rem;
+      height: 2.25rem;
+      padding: 0;
+    }
+    .icon svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .danger {
       color: var(--error);
+    }
+    .photo {
+      border: 2px solid #000;
+      border-radius: 0;
     }
     .small {
       font-size: 0.85rem;
@@ -74,67 +156,22 @@ export class RecipeDetail implements OnInit {
   private readonly router = inject(Router);
 
   protected readonly recipe = signal<Recipe | null>(null);
-  protected readonly photo = new ObjectUrl(inject(DestroyRef));
   protected readonly notFound = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly imageError = signal<string | null>(null);
-  protected readonly uploading = signal(false);
   protected readonly deleting = signal(false);
 
   ngOnInit(): void {
     // Set by RecipeForm when the recipe saved but its photo didn't.
     this.imageError.set((history.state as { photoError?: string } | null)?.photoError ?? null);
     this.api.get(Number(this.id())).subscribe({
-      next: (r) => {
-        this.recipe.set(r);
-        if (r.image_key) {
-          this.api.imageBlob(r.id).subscribe({
-            next: (blob) => this.photo.set(blob),
-            error: () => this.imageError.set('Could not load the photo.'),
-          });
-        }
-      },
+      next: (r) => this.recipe.set(r),
       error: (err: HttpErrorResponse) => {
         if (err.status === 404 || err.status === 400) {
           this.notFound.set(true);
         } else {
           this.error.set('Could not load this recipe.');
         }
-      },
-    });
-  }
-
-  protected upload(r: Recipe, image: Blob): void {
-    this.uploading.set(true);
-    this.imageError.set(null);
-    this.api.uploadImage(r.id, image).subscribe({
-      next: ({ recipe }) => {
-        this.recipe.set(recipe);
-        // What we uploaded is what the server now has; no need to fetch it back.
-        this.photo.set(image);
-        this.uploading.set(false);
-      },
-      error: (err: HttpErrorResponse) => {
-        this.uploading.set(false);
-        this.imageError.set(err.error?.errors?.image?.[0] ?? 'Upload failed.');
-      },
-    });
-  }
-
-  protected removeImage(r: Recipe): void {
-    if (!confirm('Remove the photo?')) {
-      return;
-    }
-    this.uploading.set(true);
-    this.api.deleteImage(r.id).subscribe({
-      next: ({ recipe }) => {
-        this.recipe.set(recipe);
-        this.photo.set(null);
-        this.uploading.set(false);
-      },
-      error: () => {
-        this.uploading.set(false);
-        this.imageError.set('Could not remove the photo.');
       },
     });
   }

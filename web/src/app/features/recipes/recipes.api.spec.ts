@@ -31,7 +31,7 @@ describe('RecipesApi', () => {
   });
 
   it('writes with POST, PATCH and DELETE under the same URLs', () => {
-    const body = { title: 'Soup', ingredients: ['1 onion'], directions: ['Chop'] };
+    const body = { title: 'Soup', ingredients: ['1 onion'], directions: ['Chop'], notes: '' };
     api.create(body).subscribe();
     const create = backend.expectOne('/api/v1/recipes');
     expect(create.request.method).toBe('POST');

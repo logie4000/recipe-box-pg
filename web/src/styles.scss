@@ -1,38 +1,55 @@
 :root {
-  color-scheme: light dark;
-  --fg: #1d1d1f;
-  --bg: #ffffff;
-  --muted: #6b6b70;
-  --border: #d9d9de;
-  --accent: #2f5bd3;
+  // The original Recipe Box is light only, so this one is too for now.
+  color-scheme: light;
+  --fg: #000;
+  --bg: #fff;
+  --muted: #5f5f66;
+  --border: #c0c0c0;
+  --accent: #1a6fa3;
   --error: #b3261e;
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #ececf1;
-    --bg: #16161a;
-    --muted: #a0a0a8;
-    --border: #33333a;
-    --accent: #8aa8ff;
-    --error: #ff8a80;
-  }
+  --masthead: lightblue;
+  --menu: rgb(127, 211, 245);
+  --menu-active: #c0c0c0;
+  --table-head: lightskyblue;
+  --stripe: #f9f9f9;
+  --hover: #ddd;
+  --panel: #f3f3f3;
+
+  --font-body: 'Trebuchet MS', Arial, Helvetica, sans-serif;
+  --font-type: 'Courier New', Courier, monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
+// Keep [hidden] hidden even on elements given a display below (inputs).
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--font-body);
   line-height: 1.5;
   color: var(--fg);
   background: var(--bg);
+}
+
+h1,
+h2 {
+  font-family: var(--font-type);
+  font-weight: 900;
+}
+
+h1 {
+  font-size: 2.25rem;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 1.75rem;
 }
 
 a {
@@ -44,11 +61,16 @@ button,
   font: inherit;
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
+  border-radius: 4px;
+  background: var(--panel);
   color: inherit;
   cursor: pointer;
   text-decoration: none;
+}
+
+button:hover:not(:disabled),
+.button:hover {
+  background: #ccc;
 }
 
 label {
@@ -58,9 +80,9 @@ label {
 
 button.primary,
 .button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+  background: var(--table-head);
+  border-color: #000;
+  color: #000;
 }
 
 button:disabled {
@@ -114,4 +136,25 @@ textarea {
 
 .error {
   color: var(--error);
+}
+
+table.list {
+  border-collapse: collapse;
+  width: 100%;
+
+  th {
+    padding: 3px 5px 3px 15px;
+    background: var(--table-head);
+    text-align: left;
+  }
+  td {
+    padding: 4px 5px 4px 15px;
+    vertical-align: middle;
+  }
+  tbody tr:nth-child(even) {
+    background: var(--stripe);
+  }
+  tbody tr:hover {
+    background: var(--hover);
+  }
 }

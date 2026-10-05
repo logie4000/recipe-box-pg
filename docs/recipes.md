@@ -10,6 +10,7 @@
 | `title` | varchar, not null | 1 to 200 characters |
 | `ingredients` | text[], default `{}` | ordered list. Items are stripped and blank ones dropped. Up to 200 items of 2,000 characters each. |
 | `directions` | text[], default `{}` | ordered steps, same rules as `ingredients` |
+| `notes` | text, default `''` | free-form notes, trimmed, at most 10,000 characters |
 | `image_key` | varchar, null | Where the photo of the finished dish is stored (`recipes/<24 random letters and digits>.jpg` (or `.png`, `.webp`)). Only the image upload endpoint sets it, to a file it just stored, so nobody can point it at someone else's photo. |
 | `is_public` | boolean, not null, default `false` | Private unless the owner makes it public. |
 | `public_id` | varchar, not null, unique | 12 random letters and digits for the public URL (`SecureRandom.alphanumeric(12)`, e.g. `k7Xq2mP9vR4t`), separate from the table's sequential `id`. The model generates it on create; clients can't set it, and it never changes (`attr_readonly`), even when the recipe is edited or made private and public again. |
@@ -66,7 +67,7 @@ the Rails write-api, so a recipe has one URL for every operation.
 | `GET /api/v1/recipes?limit=&offset=` | read-api | token | the caller's recipes, newest first: `{items, total, limit, offset}` |
 | `GET /api/v1/recipes/:id` | read-api | token | one of the caller's recipes |
 | `GET /api/v1/public/recipes/:public_id` | read-api | none | a public recipe, read-only |
-| `POST /api/v1/recipes` | write-api | token | `{recipe: {title, ingredients: [], directions: [], is_public}}` gives 201 `{id, recipe}` |
+| `POST /api/v1/recipes` | write-api | token | `{recipe: {title, ingredients: [], directions: [], notes, is_public}}` gives 201 `{id, recipe}` |
 | `PATCH /api/v1/recipes/:id` | write-api | token | same body, partial update (including `is_public`) |
 | `DELETE /api/v1/recipes/:id` | write-api | token | also deletes the photo |
 | `PUT /api/v1/recipes/:id/image` | write-api | token | multipart field `image`: adds or replaces the photo, returns `{id, recipe}` |

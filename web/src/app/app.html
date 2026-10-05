@@ -1,18 +1,26 @@
-<nav class="topbar">
-  <a routerLink="/" class="brand">Recipe Box</a>
-  @if (auth.isAuthenticated()) {
-    <a routerLink="/recipes" routerLinkActive="active">My recipes</a>
-    <a routerLink="/notes" routerLinkActive="active">Notes</a>
-  }
+<header class="masthead">
+  <a routerLink="/" class="app-title">Recipe Box</a>
   <span class="spacer"></span>
-  @if (auth.isAuthenticated()) {
-    <span class="muted">{{ auth.displayName() }}</span>
-    <button type="button" (click)="auth.logout()">Sign out</button>
-  } @else {
-    <button type="button" (click)="auth.login()">Sign in</button>
-  }
-</nav>
+  <div class="greeting">
+    @if (auth.isAuthenticated()) {
+      <span>{{ auth.displayName() }}</span>
+      <button type="button" (click)="auth.logout()">Sign out</button>
+    } @else {
+      <button type="button" (click)="auth.login()">Sign in</button>
+    }
+  </div>
+</header>
 
-<main>
-  <router-outlet />
-</main>
+<div class="content">
+  <nav class="side-nav">
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    @if (auth.isAuthenticated()) {
+      <a routerLink="/recipes" routerLinkActive="active">Recipes</a>
+      <a routerLink="/notes" routerLinkActive="active">Notes</a>
+    }
+  </nav>
+
+  <main>
+    <router-outlet />
+  </main>
+</div>
