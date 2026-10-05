@@ -30,7 +30,15 @@ describe('App', () => {
     authenticated.set(false);
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Sign in');
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.textContent).toContain('Sign in');
+
+    // All Recipes works signed out; the rest show greyed, with a reason, and don't link.
+    const nav = el.querySelector('.side-nav')!;
+    expect(nav.querySelector('a[href="/public"]')?.textContent).toContain('All Recipes');
+    const inert = Array.from(nav.querySelectorAll('.disabled'));
+    expect(inert.map((e) => e.textContent?.trim())).toEqual(['My Recipes', 'Saved', 'Notes']);
+    expect(inert.every((e) => e.tagName === 'SPAN' && e.getAttribute('title'))).toBe(true);
   });
 
   it('shows the user and the recipes link when signed in', async () => {

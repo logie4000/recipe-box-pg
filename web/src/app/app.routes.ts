@@ -40,9 +40,8 @@ export const routes: Routes = [
     ],
   },
   {
-    // Everything anyone has shared, for signed-in users.
+    // Every public recipe, for anyone; signing in adds bookmarks and "Yours".
     path: 'public',
-    canActivate: [authGuard],
     loadComponent: () => import('./features/recipes/shared-list').then((m) => m.SharedList),
   },
   {
