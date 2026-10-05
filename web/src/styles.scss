@@ -285,13 +285,28 @@ table.list {
   font-weight: 700;
 }
 
-// Grid of recipe cards (app-recipe-card): about four across on a wide
-// screen, down to one on a phone.
+// Grid of recipe cards (app-recipe-card): four across on a wide screen (a
+// page of 12 is three full rows), then three, two and one as it narrows.
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.75rem 1.25rem;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+@media (max-width: 1100px) {
+  .card-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 800px) {
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .card-grid {
+    grid-template-columns: 1fr;
+  }
 }
