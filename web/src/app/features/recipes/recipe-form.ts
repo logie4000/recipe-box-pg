@@ -19,11 +19,20 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import { Observable, of } from 'rxjs';
 
+import { AuthService } from '../../core/auth.service';
 import { ImageDropZone } from './image-drop-zone';
 import { ObjectUrl } from './object-url';
+import { RecipePreview } from './recipe-preview';
 import { Recipe, RecipesApi, RecipeWriteResult } from './recipes.api';
 
 type ListName = 'ingredients' | 'directions';
+
+interface FormValues {
+  title: string;
+  ingredients: string[];
+  directions: string[];
+  notes: string;
+}
 
 /** Matches Recipe::MAX_ITEMS, MAX_ITEM_LENGTH and MAX_NOTES_LENGTH in the write-api. */
 const MAX_ITEMS = 200;
@@ -34,10 +43,12 @@ const MAX_NOTES_LENGTH = 10000;
  * New recipe (/recipes/new) or edit (/recipes/:id/edit): title, ingredients
  * and directions as editable lists, and the photo. A photo picked here is
  * uploaded after the recipe is saved, since a new recipe has no id before that.
+ * GitHub-style tabs: Edit (the form) and Preview (how the recipe page will
+ * look with what's in the form, photo included, before saving).
  */
 @Component({
   selector: 'app-recipe-form',
-  imports: [ReactiveFormsModule, RouterLink, ImageDropZone],
+  imports: [ReactiveFormsModule, RouterLink, ImageDropZone, RecipePreview],
   template: `
     <h1>{{ id() ? 'Edit recipe' : 'New recipe' }}</h1>
 
@@ -45,137 +56,179 @@ const MAX_NOTES_LENGTH = 10000;
       <p class="error" role="alert">{{ loadError() }}</p>
     } @else {
       <form [formGroup]="form" (ngSubmit)="save()">
-        <label>
-          Title
-          <input formControlName="title" maxlength="200" required autocomplete="off" />
-        </label>
-        @if (serverErrors()['title']; as msgs) {
-          <p class="error">Title {{ msgs.join(', ') }}</p>
+        <div class="tabs" role="tablist" aria-label="Edit or preview">
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="tab() === 'edit'"
+            [class.active]="tab() === 'edit'"
+            (click)="tab.set('edit')"
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            role="tab"
+            [attr.aria-selected]="tab() === 'preview'"
+            [class.active]="tab() === 'preview'"
+            (click)="showPreview()"
+          >
+            Preview
+          </button>
+        </div>
+
+        <!-- Hidden, not removed, so the fields keep their state while previewing. -->
+        <div class="pane" role="tabpanel" [hidden]="tab() !== 'edit'">
+          <label>
+            Title
+            <input formControlName="title" maxlength="200" required autocomplete="off" />
+          </label>
+          @if (serverErrors()['title']; as msgs) {
+            <p class="error">Title {{ msgs.join(', ') }}</p>
+          }
+
+          <fieldset>
+            <legend>Photo of the finished dish</legend>
+            <app-image-drop-zone
+              [imageUrl]="photo.url()"
+              [busy]="saving()"
+              (picked)="pickPhoto($event)"
+              (removed)="removePhoto()"
+            />
+          </fieldset>
+
+          <fieldset>
+            <legend>Ingredients</legend>
+            <p class="muted hint">One per line. Pasting a list splits it into lines.</p>
+            <ol class="items" formArrayName="ingredients">
+              @for (ctl of ingredients.controls; track ctl; let i = $index, last = $last) {
+                <li>
+                  <input
+                    [id]="'ingredients-' + i"
+                    [formControlName]="i"
+                    [maxlength]="maxItemLength"
+                    placeholder="e.g. 2 cups flour"
+                    [attr.aria-label]="'Ingredient ' + (i + 1)"
+                    (keydown.enter)="$event.preventDefault(); add('ingredients', i + 1)"
+                    (paste)="paste('ingredients', i, $event)"
+                  />
+                  <span class="row-actions">
+                    <button
+                      type="button"
+                      (click)="move('ingredients', i, -1)"
+                      [disabled]="i === 0"
+                      aria-label="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      (click)="move('ingredients', i, 1)"
+                      [disabled]="last"
+                      aria-label="Move down"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      (click)="removeItem('ingredients', i)"
+                      aria-label="Remove"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </li>
+              }
+            </ol>
+            <button
+              type="button"
+              (click)="add('ingredients')"
+              [disabled]="ingredients.length >= maxItems"
+            >
+              Add ingredient
+            </button>
+            @if (serverErrors()['ingredients']; as msgs) {
+              <p class="error">Ingredients {{ msgs.join(', ') }}</p>
+            }
+          </fieldset>
+
+          <fieldset>
+            <legend>Directions</legend>
+            <ol class="items" formArrayName="directions">
+              @for (ctl of directions.controls; track ctl; let i = $index, last = $last) {
+                <li>
+                  <textarea
+                    [id]="'directions-' + i"
+                    [formControlName]="i"
+                    [maxlength]="maxItemLength"
+                    rows="2"
+                    placeholder="Describe this step"
+                    [attr.aria-label]="'Step ' + (i + 1)"
+                  ></textarea>
+                  <span class="row-actions">
+                    <button
+                      type="button"
+                      (click)="move('directions', i, -1)"
+                      [disabled]="i === 0"
+                      aria-label="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      (click)="move('directions', i, 1)"
+                      [disabled]="last"
+                      aria-label="Move down"
+                    >
+                      ↓
+                    </button>
+                    <button type="button" (click)="removeItem('directions', i)" aria-label="Remove">
+                      ✕
+                    </button>
+                  </span>
+                </li>
+              }
+            </ol>
+            <button
+              type="button"
+              (click)="add('directions')"
+              [disabled]="directions.length >= maxItems"
+            >
+              Add step
+            </button>
+            @if (serverErrors()['directions']; as msgs) {
+              <p class="error">Directions {{ msgs.join(', ') }}</p>
+            }
+          </fieldset>
+
+          <fieldset>
+            <legend>Notes</legend>
+            <textarea
+              formControlName="notes"
+              rows="4"
+              [maxlength]="maxNotesLength"
+              placeholder="Tips, substitutions, where the recipe came from"
+              aria-label="Notes"
+            ></textarea>
+            @if (serverErrors()['notes']; as msgs) {
+              <p class="error">Notes {{ msgs.join(', ') }}</p>
+            }
+          </fieldset>
+        </div>
+
+        @if (tab() === 'preview' && snapshot(); as v) {
+          <div class="pane" role="tabpanel">
+            <app-recipe-preview
+              [title]="v.title"
+              [author]="author()"
+              [notes]="v.notes"
+              [ingredients]="v.ingredients"
+              [directions]="v.directions"
+              [photoUrl]="photo.url()"
+              photoHint="No photo yet"
+            />
+          </div>
         }
-
-        <fieldset>
-          <legend>Photo of the finished dish</legend>
-          <app-image-drop-zone
-            [imageUrl]="photo.url()"
-            [busy]="saving()"
-            (picked)="pickPhoto($event)"
-            (removed)="removePhoto()"
-          />
-        </fieldset>
-
-        <fieldset>
-          <legend>Ingredients</legend>
-          <p class="muted hint">One per line. Pasting a list splits it into lines.</p>
-          <ol class="items" formArrayName="ingredients">
-            @for (ctl of ingredients.controls; track ctl; let i = $index, last = $last) {
-              <li>
-                <input
-                  [id]="'ingredients-' + i"
-                  [formControlName]="i"
-                  [maxlength]="maxItemLength"
-                  placeholder="e.g. 2 cups flour"
-                  [attr.aria-label]="'Ingredient ' + (i + 1)"
-                  (keydown.enter)="$event.preventDefault(); add('ingredients', i + 1)"
-                  (paste)="paste('ingredients', i, $event)"
-                />
-                <span class="row-actions">
-                  <button
-                    type="button"
-                    (click)="move('ingredients', i, -1)"
-                    [disabled]="i === 0"
-                    aria-label="Move up"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    (click)="move('ingredients', i, 1)"
-                    [disabled]="last"
-                    aria-label="Move down"
-                  >
-                    ↓
-                  </button>
-                  <button type="button" (click)="removeItem('ingredients', i)" aria-label="Remove">
-                    ✕
-                  </button>
-                </span>
-              </li>
-            }
-          </ol>
-          <button
-            type="button"
-            (click)="add('ingredients')"
-            [disabled]="ingredients.length >= maxItems"
-          >
-            Add ingredient
-          </button>
-          @if (serverErrors()['ingredients']; as msgs) {
-            <p class="error">Ingredients {{ msgs.join(', ') }}</p>
-          }
-        </fieldset>
-
-        <fieldset>
-          <legend>Directions</legend>
-          <ol class="items" formArrayName="directions">
-            @for (ctl of directions.controls; track ctl; let i = $index, last = $last) {
-              <li>
-                <textarea
-                  [id]="'directions-' + i"
-                  [formControlName]="i"
-                  [maxlength]="maxItemLength"
-                  rows="2"
-                  placeholder="Describe this step"
-                  [attr.aria-label]="'Step ' + (i + 1)"
-                ></textarea>
-                <span class="row-actions">
-                  <button
-                    type="button"
-                    (click)="move('directions', i, -1)"
-                    [disabled]="i === 0"
-                    aria-label="Move up"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    (click)="move('directions', i, 1)"
-                    [disabled]="last"
-                    aria-label="Move down"
-                  >
-                    ↓
-                  </button>
-                  <button type="button" (click)="removeItem('directions', i)" aria-label="Remove">
-                    ✕
-                  </button>
-                </span>
-              </li>
-            }
-          </ol>
-          <button
-            type="button"
-            (click)="add('directions')"
-            [disabled]="directions.length >= maxItems"
-          >
-            Add step
-          </button>
-          @if (serverErrors()['directions']; as msgs) {
-            <p class="error">Directions {{ msgs.join(', ') }}</p>
-          }
-        </fieldset>
-
-        <fieldset>
-          <legend>Notes</legend>
-          <textarea
-            formControlName="notes"
-            rows="4"
-            [maxlength]="maxNotesLength"
-            placeholder="Tips, substitutions, where the recipe came from"
-            aria-label="Notes"
-          ></textarea>
-          @if (serverErrors()['notes']; as msgs) {
-            <p class="error">Notes {{ msgs.join(', ') }}</p>
-          }
-        </fieldset>
 
         @if (error()) {
           <p class="error" role="alert">{{ error() }}</p>
@@ -191,6 +244,18 @@ const MAX_NOTES_LENGTH = 10000;
     }
   `,
   styles: `
+    form {
+      border: 2px solid #000;
+    }
+    .pane {
+      padding: 1rem;
+    }
+    form > .actions {
+      padding: 0 1rem 1rem;
+    }
+    form > .error {
+      padding: 0 1rem;
+    }
     fieldset {
       border: none;
       padding: 0;
@@ -248,11 +313,22 @@ export class RecipeForm implements OnInit {
     notes: ['', Validators.maxLength(MAX_NOTES_LENGTH)],
   });
 
+  protected showPreview(): void {
+    this.snapshot.set(this.form.getRawValue());
+    this.tab.set('preview');
+  }
+
   /** What the drop zone shows: the saved photo, or the one picked but not yet uploaded. */
   protected readonly photo = new ObjectUrl(inject(DestroyRef));
   private pendingPhoto: Blob | null = null;
   private photoRemoved = false;
   private hadPhoto = false;
+
+  protected readonly tab = signal<'edit' | 'preview'>('edit');
+  /** The form's values when Preview was opened (nothing can change while it shows). */
+  protected readonly snapshot = signal<FormValues | null>(null);
+  /** Saving stamps the current user's name on the recipe, so that's the byline. */
+  protected readonly author = inject(AuthService).displayName;
 
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);

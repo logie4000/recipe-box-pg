@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { computed } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { AuthService } from '../../../core/auth.service';
 import { RecipeImport } from './recipe-import';
 
 describe('RecipeImport', () => {
@@ -11,7 +13,12 @@ describe('RecipeImport', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [RecipeImport],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: AuthService, useValue: { displayName: computed(() => 'Eddie Editor') } },
+      ],
     });
     backend = TestBed.inject(HttpTestingController);
   });
@@ -29,21 +36,29 @@ describe('RecipeImport', () => {
   const button = (el: HTMLElement, label: string) =>
     Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes(label))!;
 
-  it('previews pasted recipes and saves only the selected ones, one at a time', async () => {
+  const picks = (el: HTMLElement) => Array.from(el.querySelectorAll<HTMLInputElement>('.pick'));
+
+  async function paste(text: string, mine: object[] = []) {
     const fixture = TestBed.createComponent(RecipeImport);
     await fixture.whenStable();
     const el = fixture.nativeElement as HTMLElement;
-
-    const box = el.querySelector<HTMLTextAreaElement>('[data-testid="import-text"]')!;
-    box.value = 'Soup\nIngredients\n- 1 onion\nDirections\n1. Chop\n---\nToast\nIngredients\nBread';
+    el.querySelector<HTMLTextAreaElement>('[data-testid="import-text"]')!.value = text;
     button(el, 'Preview').click();
-    existing([]);
+    existing(mine);
     await fixture.whenStable();
+    return { fixture, el };
+  }
+
+  it('lists each recipe as a collapsed section and saves only the ticked ones', async () => {
+    const { fixture, el } = await paste(
+      'Soup\nIngredients\n- 1 onion\nDirections\n1. Chop\n---\nToast\nIngredients\nBread',
+    );
 
     expect(el.textContent).toContain('Found 2 recipes');
-    const checks = el.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]');
-    checks[1].checked = false;
-    checks[1].dispatchEvent(new Event('change'));
+    expect(el.querySelectorAll('.twistie').length).toBe(2);
+    expect(el.querySelector('app-import-recipe-editor')).toBeNull();
+
+    picks(el)[1].click();
     await fixture.whenStable();
 
     button(el, 'Import 1 recipe').click();
@@ -59,31 +74,78 @@ describe('RecipeImport', () => {
     expect(el.querySelector('a[href="/recipes/5"]')?.textContent).toContain('Saved');
   });
 
-  it('unticks recipes already in the box and repeats in the file', async () => {
-    const fixture = TestBed.createComponent(RecipeImport);
+  it('opens a single recipe on its preview, and saves what was edited', async () => {
+    const { fixture, el } = await paste('Soup\nIngredients\nOnion\nDirections\nChop');
+
+    // Preview: laid out like the recipe page, with the importer as author.
+    const preview = el.querySelector('[data-testid="preview"]')!;
+    expect(preview.querySelector('h1')?.textContent).toContain('Soup');
+    expect(preview.textContent).toContain('by Eddie Editor');
+    expect(preview.querySelectorAll('ol li').length).toBe(1);
+
+    // Edit: change the title and add a step (blank lines are dropped).
+    button(el, 'Edit').click();
     await fixture.whenStable();
-    const el = fixture.nativeElement as HTMLElement;
-    el.querySelector<HTMLTextAreaElement>('[data-testid="import-text"]')!.value = [
-      'Soup',
-      'Ingredients',
-      'Onion',
-      '---',
-      'Toast',
-      'Ingredients',
-      'Bread',
-      '---',
-      'toast',
-      'Ingredients',
-      'bread',
-    ].join('\n');
-    button(el, 'Preview').click();
-    existing([{ id: 1, title: 'Soup', ingredients: ['Onion'], directions: [], notes: '' }]);
+    const title = el.querySelector<HTMLInputElement>('[data-testid="edit-title"]')!;
+    title.value = 'Onion soup';
+    title.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    const steps = el.querySelector<HTMLTextAreaElement>('[data-testid="edit-directions"]')!;
+    steps.value = 'Chop\n\nSimmer';
+    steps.dispatchEvent(new Event('input'));
     await fixture.whenStable();
 
-    const checks = Array.from(
-      el.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]'),
-    ).map((c) => c.checked);
-    expect(checks).toEqual([false, true, false]);
+    button(el, 'Preview').click();
+    await fixture.whenStable();
+    const updated = el.querySelector('[data-testid="preview"]')!;
+    expect(updated.querySelector('h1')?.textContent).toContain('Onion soup');
+    expect(updated.querySelectorAll('ol li').length).toBe(2);
+    expect(el.querySelector('.twistie-title')?.textContent).toContain('Onion soup');
+
+    button(el, 'Import 1 recipe').click();
+    const req = backend.expectOne('/api/v1/recipes');
+    expect(req.request.body.recipe).toEqual({
+      title: 'Onion soup',
+      ingredients: ['Onion'],
+      directions: ['Chop', 'Simmer'],
+      notes: '',
+    });
+    req.flush({ id: 6, recipe: {} });
+    await fixture.whenStable();
+  });
+
+  it("won't import a ticked recipe whose title was cleared", async () => {
+    const { fixture, el } = await paste('Soup\nIngredients\nOnion');
+    button(el, 'Edit').click();
+    await fixture.whenStable();
+    const title = el.querySelector<HTMLInputElement>('[data-testid="edit-title"]')!;
+    title.value = '  ';
+    title.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+
+    expect(button(el, 'Import 1 recipe').disabled).toBe(true);
+    expect(el.textContent).toContain('Every ticked recipe needs a title');
+  });
+
+  it('unticks recipes already in the box and repeats in the file', async () => {
+    const { el } = await paste(
+      [
+        'Soup',
+        'Ingredients',
+        'Onion',
+        '---',
+        'Toast',
+        'Ingredients',
+        'Bread',
+        '---',
+        'toast',
+        'Ingredients',
+        'bread',
+      ].join('\n'),
+      [{ id: 1, title: 'Soup', ingredients: ['Onion'], directions: [], notes: '' }],
+    );
+
+    expect(picks(el).map((c) => c.checked)).toEqual([false, true, false]);
     expect(el.textContent).toContain('Already in your box');
     expect(el.textContent).toContain('Repeated in this file');
     expect(el.textContent).toContain('2 you already have are unticked');

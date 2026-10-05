@@ -164,36 +164,6 @@ interface AuthorGroup {
     .tools {
       margin-bottom: 0.75rem;
     }
-    /* After the original Recipe Box's twisties. */
-    .twistie {
-      background: var(--panel);
-      border: 2px solid #000;
-      margin: 2px 0 0.5rem;
-    }
-    .twistie-title {
-      display: flex;
-      gap: 0.5rem;
-      align-items: baseline;
-      width: 100%;
-      padding: 0.35rem 0.6rem;
-      border: none;
-      border-radius: 0;
-      background: none;
-      font-family: var(--font-type);
-      font-size: 1.25rem;
-      font-weight: 700;
-      text-align: left;
-    }
-    .twistie-title:hover {
-      background: #ccc;
-    }
-    .arrow {
-      width: 1rem;
-    }
-    .count {
-      font-size: 0.95rem;
-      font-weight: 400;
-    }
     .twistie table {
       background: var(--bg);
     }

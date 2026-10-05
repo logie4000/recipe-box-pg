@@ -3,14 +3,17 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 
-import { RecipesApi } from '../recipes.api';
+import { Recipe, RecipesApi } from '../recipes.api';
 import { DuplicateKind, findDuplicates } from './duplicates';
-import { ImportedRecipe, ImportError, parseImport, ParseResult } from './recipe-import-parse';
+import { ImportRecipeEditor } from './import-recipe-editor';
+import { clip, ImportedRecipe, ImportError, parseImport, ParseResult } from './recipe-import-parse';
 
 /** Bigger than any sensible recipe file; keeps a stray video out of the parser. */
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 interface Row {
+  /** Stable across edits, for tracking and for which sections are open. */
+  key: number;
   recipe: ImportedRecipe;
   selected: boolean;
   duplicate: DuplicateKind | null;
@@ -20,13 +23,14 @@ interface Row {
 }
 
 /**
- * /recipes/import: drop a file or paste text, check the preview, then save
- * the chosen recipes one by one as new private recipes of the signed-in user.
- * Parsing happens in the browser; saving goes through the normal create API.
+ * /recipes/import: drop a file or paste text, check each recipe (a twistie
+ * per recipe, with Edit and Preview tabs), then save the chosen ones one by
+ * one as new private recipes of the signed-in user. Parsing happens in the
+ * browser; saving goes through the normal create API.
  */
 @Component({
   selector: 'app-recipe-import',
-  imports: [RouterLink],
+  imports: [RouterLink, ImportRecipeEditor],
   template: `
     <p><a routerLink="/recipes">← My recipes</a></p>
     <h1>Import recipes</h1>
@@ -86,6 +90,7 @@ interface Row {
           {{ duplicateCount() }} you already have
           {{ duplicateCount() === 1 ? 'is' : 'are' }} unticked.
         }
+        <span class="muted">Open a recipe to edit it or preview how it will look.</span>
       </p>
       @if (checkFailed()) {
         <p class="error" role="alert">
@@ -93,63 +98,64 @@ interface Row {
         </p>
       }
 
-      <table class="list">
-        <thead>
-          <tr>
-            <th class="check">
-              <input
-                type="checkbox"
-                aria-label="Select all"
-                [checked]="allSelected()"
-                [disabled]="busy() || done()"
-                (change)="selectAll($any($event.target).checked)"
-              />
-            </th>
-            <th>Title</th>
-            <th>Contents</th>
-            <th>Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of rows(); track $index) {
-            <tr>
-              <td class="check">
-                <input
-                  type="checkbox"
-                  [attr.aria-label]="'Import ' + row.recipe.title"
-                  [checked]="row.selected"
-                  [disabled]="busy() || done()"
-                  (change)="toggle($index, $any($event.target).checked)"
-                />
-              </td>
-              <td>
-                <strong>{{ row.recipe.title }}</strong>
-                @if (row.recipe.author) {
-                  <span class="muted"> by {{ row.recipe.author }}</span>
-                }
-                @if (row.recipe.notes) {
-                  <div class="muted small">{{ row.recipe.notes }}</div>
-                }
-              </td>
-              <td class="muted">
-                {{ row.recipe.ingredients.length }}
-                {{ row.recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }},
-                {{ row.recipe.directions.length }}
-                {{ row.recipe.directions.length === 1 ? 'step' : 'steps' }}
-              </td>
-              <td>
-                @if (row.savedId) {
-                  <a [routerLink]="['/recipes', row.savedId]">Saved</a>
-                } @else if (row.error) {
-                  <span class="error">{{ row.error }}</span>
-                } @else if (row.duplicate) {
-                  <span class="muted">{{ duplicateLabel[row.duplicate] }}</span>
-                }
-              </td>
-            </tr>
+      <div class="actions tools">
+        <label class="all">
+          <input
+            type="checkbox"
+            [checked]="allSelected()"
+            [disabled]="busy() || done()"
+            (change)="selectAll($any($event.target).checked)"
+          />
+          Select all
+        </label>
+        <span class="spacer"></span>
+        <button type="button" (click)="expandAll(true)">Expand all</button>
+        <button type="button" (click)="expandAll(false)">Collapse all</button>
+      </div>
+
+      @for (row of rows(); track row.key; let i = $index) {
+        <section class="twistie" [class.unselected]="!row.selected">
+          <div class="head">
+            <input
+              type="checkbox"
+              class="pick"
+              [attr.aria-label]="'Import ' + (row.recipe.title || 'untitled recipe')"
+              [checked]="row.selected"
+              [disabled]="busy() || done()"
+              (change)="toggle(i, $any($event.target).checked)"
+            />
+            <button
+              type="button"
+              class="twistie-title"
+              [attr.aria-expanded]="open().has(row.key)"
+              (click)="toggleOpen(row.key)"
+            >
+              <span class="arrow" aria-hidden="true">{{ open().has(row.key) ? '▾' : '▸' }}</span>
+              <span class="name">{{ row.recipe.title || 'Untitled' }}</span>
+              @if (row.recipe.author) {
+                <span class="count">by {{ row.recipe.author }}</span>
+              }
+              <span class="count">({{ summary(row.recipe) }})</span>
+            </button>
+            <span class="status">
+              @if (row.savedId) {
+                <a [routerLink]="['/recipes', row.savedId]">Saved</a>
+              } @else if (row.error) {
+                <span class="error">{{ row.error }}</span>
+              } @else if (row.duplicate) {
+                <span class="muted">{{ duplicateLabel[row.duplicate] }}</span>
+              }
+            </span>
+          </div>
+          @if (open().has(row.key)) {
+            <app-import-recipe-editor
+              [recipe]="row.recipe"
+              [disabled]="busy() || done()"
+              (changed)="edit(i, $event)"
+            />
           }
-        </tbody>
-      </table>
+        </section>
+      }
 
       <div class="actions bottom">
         @if (done()) {
@@ -160,7 +166,7 @@ interface Row {
             type="button"
             class="primary"
             (click)="save()"
-            [disabled]="busy() || !selectedCount()"
+            [disabled]="busy() || !selectedCount() || untitledSelected()"
           >
             @if (busy()) {
               Saving {{ progress() }} of {{ selectedCount() }}…
@@ -169,6 +175,9 @@ interface Row {
             }
           </button>
           <button type="button" (click)="reset()" [disabled]="busy()">Start over</button>
+          @if (untitledSelected()) {
+            <span class="error">Every ticked recipe needs a title.</span>
+          }
         }
       </div>
       @if (done()) {
@@ -203,18 +212,42 @@ interface Row {
     .paste textarea {
       font-family: var(--font-type);
     }
-    .check {
-      width: 2.5rem;
+    .tools {
+      margin-bottom: 0.75rem;
     }
-    .check input {
+    .all {
+      display: inline-flex;
+      gap: 0.4rem;
+      align-items: center;
+      margin: 0;
+    }
+    .all input,
+    .pick {
       width: auto;
       margin: 0;
     }
-    .small {
-      font-size: 0.85rem;
-      white-space: pre-line;
-      max-height: 3em;
-      overflow: hidden;
+    .spacer {
+      flex: 1;
+    }
+    .head {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      padding-left: 0.6rem;
+    }
+    .head .twistie-title {
+      flex: 1;
+      min-width: 0;
+      flex-wrap: wrap;
+      padding-left: 0;
+    }
+    .status {
+      padding-right: 0.6rem;
+      text-align: right;
+      font-size: 0.9rem;
+    }
+    .twistie.unselected .name {
+      opacity: 0.55;
     }
     .bottom {
       margin-top: 1rem;
@@ -249,6 +282,12 @@ export class RecipeImport {
   protected readonly progress = signal(0);
   protected readonly checking = signal(false);
   protected readonly checkFailed = signal(false);
+  /** Keys of the expanded sections. */
+  protected readonly open = signal(new Set<number>());
+
+  /** What duplicates are checked against, kept so edits can be re-checked. */
+  private existing: Recipe[] = [];
+  private savedIds: string[] = [];
 
   protected readonly duplicateLabel: Record<DuplicateKind, string> = {
     exists: 'Already in your box',
@@ -260,6 +299,9 @@ export class RecipeImport {
   protected readonly selectedCount = computed(() => this.rows().filter((r) => r.selected).length);
   protected readonly savedCount = computed(() => this.rows().filter((r) => r.savedId).length);
   protected readonly allSelected = computed(() => this.rows().every((r) => r.selected));
+  protected readonly untitledSelected = computed(() =>
+    this.rows().some((r) => r.selected && !r.recipe.title.trim()),
+  );
   protected readonly duplicateCount = computed(
     () => this.rows().filter((r) => r.duplicate === 'exists' || r.duplicate === 'in-file').length,
   );
@@ -325,13 +367,13 @@ export class RecipeImport {
         firstValueFrom(this.api.listAll()),
         firstValueFrom(this.api.listSaved()),
       ]);
-      duplicates = findDuplicates(
-        result.recipes,
-        mine,
-        saved.items.map((r) => r.public_id),
-      );
+      this.existing = mine;
+      this.savedIds = saved.items.map((r) => r.public_id);
+      duplicates = findDuplicates(result.recipes, this.existing, this.savedIds);
     } catch {
       this.checkFailed.set(true);
+      this.existing = [];
+      this.savedIds = [];
       duplicates = findDuplicates(result.recipes, []);
     } finally {
       this.checking.set(false);
@@ -341,10 +383,22 @@ export class RecipeImport {
     this.skipped.set(result.skipped);
     this.rows.set(
       result.recipes.map((recipe, i) => ({
+        key: i,
         recipe,
         duplicate: duplicates[i],
         selected: duplicates[i] !== 'exists' && duplicates[i] !== 'in-file',
       })),
+    );
+    // A single recipe opens straight away; several start collapsed.
+    this.open.set(new Set(result.recipes.length === 1 ? [0] : []));
+  }
+
+  protected summary(r: ImportedRecipe): string {
+    const ingredients = r.ingredients.filter((s) => s.trim()).length;
+    const steps = r.directions.filter((s) => s.trim()).length;
+    return (
+      `${ingredients} ${ingredients === 1 ? 'ingredient' : 'ingredients'}, ` +
+      `${steps} ${steps === 1 ? 'step' : 'steps'}`
     );
   }
 
@@ -356,7 +410,32 @@ export class RecipeImport {
     this.rows.update((rows) => rows.map((r) => ({ ...r, selected })));
   }
 
-  /** One at a time, so a big import doesn't flood the API, and each row gets its own result. */
+  protected toggleOpen(key: number): void {
+    this.open.update((s) => {
+      const next = new Set(s);
+      if (!next.delete(key)) {
+        next.add(key);
+      }
+      return next;
+    });
+  }
+
+  protected expandAll(on: boolean): void {
+    this.open.set(new Set(on ? this.rows().map((r) => r.key) : []));
+  }
+
+  /** An edit from a recipe's Edit tab; duplicate marks are re-checked, ticks kept. */
+  protected edit(index: number, recipe: ImportedRecipe): void {
+    const rows = this.rows().map((r, i) => (i === index ? { ...r, recipe } : r));
+    const duplicates = findDuplicates(
+      rows.map((r) => clip(r.recipe)),
+      this.existing,
+      this.savedIds,
+    );
+    this.rows.set(rows.map((r, i) => ({ ...r, duplicate: duplicates[i] })));
+  }
+
+  /** One at a time, so a big import doesn't flood the API, and each recipe gets its own result. */
   protected async save(): Promise<void> {
     this.busy.set(true);
     this.progress.set(0);
@@ -369,7 +448,7 @@ export class RecipeImport {
       let patch: Partial<Row>;
       try {
         // Author and ID only describe the source; the new recipe is the importer's.
-        const { title, ingredients, directions, notes } = rows[i].recipe;
+        const { title, ingredients, directions, notes } = clip(rows[i].recipe);
         const { id } = await firstValueFrom(
           this.api.create({ title, ingredients, directions, notes }),
         );
@@ -389,6 +468,7 @@ export class RecipeImport {
     this.skipped.set(0);
     this.error.set(null);
     this.checkFailed.set(false);
+    this.open.set(new Set());
     this.done.set(false);
   }
 }

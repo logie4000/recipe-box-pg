@@ -229,3 +229,58 @@ table.list {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+// Collapsible section after the original Recipe Box's twisties:
+//   <section class="twistie"><button class="twistie-title" aria-expanded>
+//   <span class="arrow">▸</span> Title <span class="count">(3)</span></button> …</section>
+.twistie {
+  background: var(--panel);
+  border: 2px solid #000;
+  margin: 2px 0 0.5rem;
+}
+.twistie-title {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-family: var(--font-type);
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: left;
+}
+.twistie-title:hover {
+  background: #ccc;
+}
+.twistie .arrow {
+  width: 1rem;
+}
+.twistie .count {
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+
+// GitHub-style Edit / Preview tabs:
+//   <div class="tabs" role="tablist"><button role="tab" class="active">Edit</button>…</div>
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem 0;
+  border-bottom: 1px solid #000;
+  background: var(--panel);
+}
+.tabs button {
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: none;
+  margin-bottom: -1px;
+}
+.tabs button.active {
+  border-color: #000;
+  background: var(--bg);
+  font-weight: 700;
+}

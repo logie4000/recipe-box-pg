@@ -173,7 +173,7 @@ const listRecipes = `-- name: ListRecipes :many
 SELECT id, public_id, title, ingredients, directions, notes, image_key, is_public, created_at, updated_at
 FROM recipes
 WHERE owner_sub = $1
-ORDER BY created_at DESC, id DESC
+ORDER BY lower(title), id
 LIMIT $2 OFFSET $3
 `
 

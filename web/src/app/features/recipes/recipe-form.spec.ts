@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { computed } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 
+import { AuthService } from '../../core/auth.service';
 import { RecipeForm, splitLines } from './recipe-form';
 
 describe('splitLines', () => {
@@ -26,12 +28,47 @@ describe('RecipeForm', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [RecipeForm],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: AuthService, useValue: { displayName: computed(() => 'Eddie Editor') } },
+      ],
     });
     backend = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => backend.verify());
+
+  it('previews the recipe as it will look, keeping what was typed', async () => {
+    const fixture = TestBed.createComponent(RecipeForm);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const tab = (name: string) =>
+      Array.from(el.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(
+        (b) => b.textContent?.trim() === name,
+      )!;
+
+    const title = el.querySelector<HTMLInputElement>('input[formcontrolname="title"]')!;
+    title.value = 'Soup';
+    title.dispatchEvent(new Event('input'));
+    const step = el.querySelector<HTMLTextAreaElement>('#directions-0')!;
+    step.value = 'Chop';
+    step.dispatchEvent(new Event('input'));
+
+    tab('Preview').click();
+    await fixture.whenStable();
+    const preview = el.querySelector('[data-testid="preview"]')!;
+    expect(preview.querySelector('h1')?.textContent).toContain('Soup');
+    expect(preview.textContent).toContain('by Eddie Editor');
+    expect(preview.querySelectorAll('ol li').length).toBe(1);
+    expect(title.closest('[role="tabpanel"]')?.hasAttribute('hidden')).toBe(true);
+
+    tab('Edit').click();
+    await fixture.whenStable();
+    expect(el.querySelector('[data-testid="preview"]')).toBeNull();
+    expect(title.value).toBe('Soup');
+  });
 
   it('creates a recipe without blank rows, then opens it', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
