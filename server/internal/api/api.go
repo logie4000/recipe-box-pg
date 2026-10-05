@@ -55,6 +55,9 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/recipes", protected(s.listRecipes))
 	mux.Handle("GET /api/v1/recipes/{id}", protected(s.getRecipe))
 	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
+	mux.Handle("GET /api/v1/shared-recipes", protected(s.listSharedRecipes))
+	mux.Handle("GET /api/v1/saved-recipes", protected(s.listSavedRecipes))
+	mux.Handle("GET /api/v1/saved-recipes/{public_id}", protected(s.getSavedStatus))
 
 	return httpx.Chain(mux,
 		httpx.Recover(s.Log),
@@ -196,6 +199,78 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, recipe)
+}
+
+// listSharedRecipes is every shared recipe on the site, for signed-in users
+// browsing what others have shared. RLS lets public rows through
+// (recipes_public_read) and the query asks only for those. Owners are not
+// exposed, just author_name and whether the recipe is the caller's own.
+func (s *Server) listSharedRecipes(w http.ResponseWriter, r *http.Request) {
+	limit := queryInt(r, "limit", 500, 1, 1000)
+	offset := queryInt(r, "offset", 0, 0, 1_000_000)
+	var (
+		items []sqlc.ListSharedRecipesRow
+		total int64
+	)
+	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		items, err = q.ListSharedRecipes(r.Context(), sqlc.ListSharedRecipesParams{
+			CallerSub:  auth.UserFrom(r.Context()).Subject,
+			PageLimit:  int32(limit),
+			PageOffset: int32(offset),
+		})
+		if err != nil {
+			return err
+		}
+		total, err = q.CountSharedRecipes(r.Context())
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total, "limit": limit, "offset": offset})
+}
+
+// listSavedRecipes is the caller's bookmarks of other people's shared recipes.
+// saved_recipes rows are private to their user (RLS); recipes that stopped
+// being shared are left out.
+func (s *Server) listSavedRecipes(w http.ResponseWriter, r *http.Request) {
+	var items []sqlc.ListSavedRecipesRow
+	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		items, err = q.ListSavedRecipes(r.Context(), auth.UserFrom(r.Context()).Subject)
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+// getSavedStatus says whether the caller owns or has saved one shared recipe,
+// for the Save button on its page. Not shared (or unknown) is a 404.
+func (s *Server) getSavedStatus(w http.ResponseWriter, r *http.Request) {
+	publicID := r.PathValue("public_id")
+	if !publicIDPattern.MatchString(publicID) {
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+		return
+	}
+	var status sqlc.GetSavedStatusRow
+	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		status, err = q.GetSavedStatus(r.Context(), sqlc.GetSavedStatusParams{
+			CallerSub: auth.UserFrom(r.Context()).Subject,
+			PublicID:  publicID,
+		})
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, status)
 }
 
 // publicIDPattern matches Recipe.generate_public_id in the write-api

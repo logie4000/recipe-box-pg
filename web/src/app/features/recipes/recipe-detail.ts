@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
+import { RecipeExport } from './import/recipe-export';
 import { RecipeBody } from './recipe-body';
 import { RecipePhoto } from './recipe-photo';
 import { Recipe, RecipesApi } from './recipes.api';
@@ -26,6 +27,9 @@ import { SharePanel } from './share-panel';
       <div class="recipe-top">
         <div class="left">
           <h1>{{ r.title }}</h1>
+          @if (r.author_name) {
+            <p class="byline">by {{ r.author_name }}</p>
+          }
           <app-share-panel [recipe]="r" (changed)="recipe.set($event)">
             <a
               [routerLink]="['/recipes', r.id, 'edit']"
@@ -38,6 +42,19 @@ import { SharePanel } from './share-panel';
                 <path d="M13.5 6.5l4 4" />
               </svg>
             </a>
+            <button
+              type="button"
+              class="icon"
+              title="Export"
+              aria-label="Export"
+              (click)="exporter.download([r])"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 20h14" />
+              </svg>
+            </button>
             <button
               type="button"
               class="icon danger"
@@ -110,6 +127,11 @@ import { SharePanel } from './share-panel';
     h1 {
       margin: 0.5rem 0 1rem;
     }
+    .byline {
+      margin: -0.5rem 0 1rem;
+      font-family: var(--font-type);
+      font-weight: 700;
+    }
     /* Narrow: panel, then photo, then notes, all above the black rule. */
     @media (max-width: 900px) {
       .recipe-top {
@@ -118,22 +140,6 @@ import { SharePanel } from './share-panel';
         grid-template-areas: 'panel' 'photo' 'notes';
         row-gap: 1rem;
       }
-    }
-    .icon {
-      display: inline-grid;
-      place-items: center;
-      width: 2.25rem;
-      height: 2.25rem;
-      padding: 0;
-    }
-    .icon svg {
-      width: 1.25rem;
-      height: 1.25rem;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
     }
     .danger {
       color: var(--error);
@@ -154,6 +160,7 @@ export class RecipeDetail implements OnInit {
 
   private readonly api = inject(RecipesApi);
   private readonly router = inject(Router);
+  protected readonly exporter = inject(RecipeExport);
 
   protected readonly recipe = signal<Recipe | null>(null);
   protected readonly notFound = signal(false);

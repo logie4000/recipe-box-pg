@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { EMPTY, expand, map, Observable, reduce } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 
@@ -12,6 +12,8 @@ export interface Recipe {
   ingredients: string[];
   directions: string[];
   notes: string;
+  /** The owner's display name when they last saved it; null on older recipes. */
+  author_name: string | null;
   image_key: string | null;
   is_public: boolean;
   created_at: string;
@@ -23,6 +25,7 @@ export type PublicRecipe = Pick<
   Recipe,
   | 'public_id'
   | 'title'
+  | 'author_name'
   | 'ingredients'
   | 'directions'
   | 'notes'
@@ -30,6 +33,27 @@ export type PublicRecipe = Pick<
   | 'created_at'
   | 'updated_at'
 >;
+
+/** A row of the shared-recipes list (GET /api/v1/shared-recipes): counts, not the lists. */
+export interface SharedRecipe {
+  public_id: string;
+  title: string;
+  author_name: string | null;
+  image_key: string | null;
+  ingredient_count: number;
+  direction_count: number;
+  /** The caller's own recipe. */
+  mine: boolean;
+  updated_at: string;
+}
+
+/** One of the caller's bookmarks of someone else's shared recipe. */
+export type SavedRecipe = Omit<SharedRecipe, 'mine' | 'updated_at'> & { saved_at: string };
+
+export interface SavedStatus {
+  mine: boolean;
+  saved: boolean;
+}
 
 export interface Page<T> {
   items: T[];
@@ -59,6 +83,19 @@ export class RecipesApi {
   list(limit = 20, offset = 0): Observable<Page<Recipe>> {
     const params = new HttpParams().set('limit', limit).set('offset', offset);
     return this.http.get<Page<Recipe>>(this.base, { params });
+  }
+
+  /** Every one of the caller's recipes, a page at a time (the read-api allows 100 per page). */
+  listAll(): Observable<Recipe[]> {
+    const pageSize = 100;
+    return this.list(pageSize, 0).pipe(
+      expand((page) => {
+        const next = page.offset + page.items.length;
+        return page.items.length && next < page.total ? this.list(pageSize, next) : EMPTY;
+      }),
+      map((page) => page.items),
+      reduce((all: Recipe[], items) => all.concat(items), []),
+    );
   }
 
   get(id: number): Observable<Recipe> {
@@ -95,6 +132,28 @@ export class RecipesApi {
   /** The owner's photo needs the bearer token, which an <img> can't send, so it comes as a blob. */
   imageBlob(id: number): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/image`, { responseType: 'blob' });
+  }
+
+  /** Every shared recipe on the site, by title (signed-in users only). */
+  listShared(): Observable<Page<SharedRecipe>> {
+    const params = new HttpParams().set('limit', 1000);
+    return this.http.get<Page<SharedRecipe>>(`${environment.api}/shared-recipes`, { params });
+  }
+
+  listSaved(): Observable<{ items: SavedRecipe[] }> {
+    return this.http.get<{ items: SavedRecipe[] }>(`${environment.api}/saved-recipes`);
+  }
+
+  savedStatus(publicId: string): Observable<SavedStatus> {
+    return this.http.get<SavedStatus>(`${environment.api}/saved-recipes/${publicId}`);
+  }
+
+  save(publicId: string): Observable<unknown> {
+    return this.http.post(`${environment.api}/saved-recipes`, { public_id: publicId });
+  }
+
+  unsave(publicId: string): Observable<unknown> {
+    return this.http.delete(`${environment.api}/saved-recipes/${publicId}`);
   }
 
   getPublic(publicId: string): Observable<PublicRecipe> {

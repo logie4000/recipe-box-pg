@@ -20,6 +20,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/recipes/recipe-form').then((m) => m.RecipeForm),
       },
       {
+        path: 'export',
+        loadComponent: () =>
+          import('./features/recipes/import/recipe-export-page').then((m) => m.RecipeExportPage),
+      },
+      {
+        path: 'import',
+        loadComponent: () =>
+          import('./features/recipes/import/recipe-import').then((m) => m.RecipeImport),
+      },
+      {
         path: ':id',
         loadComponent: () => import('./features/recipes/recipe-detail').then((m) => m.RecipeDetail),
       },
@@ -28,6 +38,18 @@ export const routes: Routes = [
         loadComponent: () => import('./features/recipes/recipe-form').then((m) => m.RecipeForm),
       },
     ],
+  },
+  {
+    // Everything anyone has shared, for signed-in users.
+    path: 'public',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recipes/shared-list').then((m) => m.SharedList),
+  },
+  {
+    // The user's bookmarks of other people's shared recipes.
+    path: 'saved',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recipes/saved-list').then((m) => m.SavedList),
   },
   {
     // Shared recipe link: no login.

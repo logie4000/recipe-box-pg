@@ -14,7 +14,13 @@ const PAGE_SIZE = 24;
   template: `
     <header class="row">
       <h1>My recipes</h1>
-      <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      <div class="actions">
+        <a routerLink="/recipes/import" class="button">Import</a>
+        @if (total()) {
+          <a routerLink="/recipes/export" class="button">Export</a>
+        }
+        <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      </div>
     </header>
 
     @if (error()) {
@@ -30,6 +36,7 @@ const PAGE_SIZE = 24;
             <tr>
               <th class="thumb"><span class="visually-hidden">Photo</span></th>
               <th>Title</th>
+              <th class="hide-narrow">Author</th>
               <th class="hide-narrow">Contents</th>
               <th>Sharing</th>
               <th class="hide-narrow">Updated</th>
@@ -44,13 +51,14 @@ const PAGE_SIZE = 24;
                 <td>
                   <a [routerLink]="['/recipes', recipe.id]" class="title">{{ recipe.title }}</a>
                 </td>
+                <td class="hide-narrow">{{ recipe.author_name }}</td>
                 <td class="hide-narrow muted">
                   {{ recipe.ingredients.length }}
                   {{ recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }},
                   {{ recipe.directions.length }}
                   {{ recipe.directions.length === 1 ? 'step' : 'steps' }}
                 </td>
-                <td>{{ recipe.is_public ? 'Shared' : 'Private' }}</td>
+                <td>{{ recipe.is_public ? 'Public' : 'Private' }}</td>
                 <td class="hide-narrow muted">{{ recipe.updated_at | date: 'mediumDate' }}</td>
               </tr>
             }
@@ -59,7 +67,10 @@ const PAGE_SIZE = 24;
       } @else {
         <div class="empty">
           <p>Your recipe box is empty.</p>
-          <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+          <div class="actions center">
+            <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+            <a routerLink="/recipes/import" class="button">Import recipes</a>
+          </div>
         </div>
       }
 
@@ -114,6 +125,9 @@ const PAGE_SIZE = 24;
       .hide-narrow {
         display: none;
       }
+    }
+    .center {
+      justify-content: center;
     }
     .empty {
       text-align: center;

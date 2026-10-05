@@ -107,7 +107,8 @@ CREATE TABLE public.recipes (
     public_id character varying NOT NULL,
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
-    notes text DEFAULT ''::text NOT NULL
+    notes text DEFAULT ''::text NOT NULL,
+    author_name character varying
 );
 
 ALTER TABLE ONLY public.recipes FORCE ROW LEVEL SECURITY;
@@ -130,6 +131,39 @@ CREATE SEQUENCE public.recipes_id_seq
 --
 
 ALTER SEQUENCE public.recipes_id_seq OWNED BY public.recipes.id;
+
+
+--
+-- Name: saved_recipes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.saved_recipes (
+    id bigint NOT NULL,
+    user_sub character varying NOT NULL,
+    recipe_id bigint NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.saved_recipes FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: saved_recipes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.saved_recipes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: saved_recipes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.saved_recipes_id_seq OWNED BY public.saved_recipes.id;
 
 
 --
@@ -606,6 +640,13 @@ ALTER TABLE ONLY public.recipes ALTER COLUMN id SET DEFAULT nextval('public.reci
 
 
 --
+-- Name: saved_recipes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_recipes ALTER COLUMN id SET DEFAULT nextval('public.saved_recipes_id_seq'::regclass);
+
+
+--
 -- Name: solid_queue_batch_executions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -726,6 +767,14 @@ ALTER TABLE ONLY public.private_notes
 
 ALTER TABLE ONLY public.recipes
     ADD CONSTRAINT recipes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: saved_recipes saved_recipes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_recipes
+    ADD CONSTRAINT saved_recipes_pkey PRIMARY KEY (id);
 
 
 --
@@ -866,6 +915,20 @@ CREATE INDEX index_recipes_on_owner_sub_and_created_at ON public.recipes USING b
 --
 
 CREATE UNIQUE INDEX index_recipes_on_public_id ON public.recipes USING btree (public_id);
+
+
+--
+-- Name: index_saved_recipes_on_recipe_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_saved_recipes_on_recipe_id ON public.saved_recipes USING btree (recipe_id);
+
+
+--
+-- Name: index_saved_recipes_on_user_sub_and_recipe_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_saved_recipes_on_user_sub_and_recipe_id ON public.saved_recipes USING btree (user_sub, recipe_id);
 
 
 --
@@ -1093,6 +1156,14 @@ CREATE INDEX index_solid_queue_semaphores_on_key_and_value ON public.solid_queue
 
 
 --
+-- Name: saved_recipes fk_rails_00bf435d6b; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.saved_recipes
+    ADD CONSTRAINT fk_rails_00bf435d6b FOREIGN KEY (recipe_id) REFERENCES public.recipes(id) ON DELETE CASCADE;
+
+
+--
 -- Name: solid_queue_recurring_executions fk_rails_318a5533ed; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1190,12 +1261,26 @@ CREATE POLICY recipes_public_read ON public.recipes FOR SELECT USING (is_public)
 
 
 --
+-- Name: saved_recipes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.saved_recipes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: saved_recipes saved_recipes_owner; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text))) WITH CHECK (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text)));
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261005150000'),
 ('20261004180000'),
 ('20261003150000'),
 ('20260929160004'),

@@ -12,6 +12,7 @@ class Recipe < ApplicationRecord
   MAX_ITEMS = 200
   MAX_ITEM_LENGTH = 2_000
   MAX_NOTES_LENGTH = 10_000
+  MAX_AUTHOR_NAME_LENGTH = 100
   PUBLIC_ID_LENGTH = 12
   PUBLIC_ID_FORMAT = /\A[A-Za-z0-9]{#{PUBLIC_ID_LENGTH}}\z/
   PUBLIC_ID_ATTEMPTS = 5
@@ -26,6 +27,7 @@ class Recipe < ApplicationRecord
   validates :owner_sub, presence: true
   validates :title, presence: true, length: { maximum: 200 }
   validates :notes, length: { maximum: MAX_NOTES_LENGTH }
+  validates :author_name, length: { maximum: MAX_AUTHOR_NAME_LENGTH }
   validates :is_public, inclusion: { in: [ true, false ] }
   validates :public_id, format: { with: PUBLIC_ID_FORMAT }
   validates :image_key, format: { with: ImageStore::KEY_FORMAT }, allow_nil: true
@@ -56,7 +58,7 @@ class Recipe < ApplicationRecord
   end
 
   def as_json(*)
-    super(only: %i[id title ingredients directions notes image_key is_public public_id created_at updated_at])
+    super(only: %i[id title ingredients directions notes author_name image_key is_public public_id created_at updated_at])
   end
 
   private
