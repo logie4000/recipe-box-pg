@@ -40,6 +40,18 @@ export const routes: Routes = [
     ],
   },
   {
+    // Everything anyone has shared, for signed-in users.
+    path: 'public',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recipes/shared-list').then((m) => m.SharedList),
+  },
+  {
+    // The user's bookmarks of other people's shared recipes.
+    path: 'saved',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/recipes/saved-list').then((m) => m.SavedList),
+  },
+  {
     // Shared recipe link: no login.
     path: 'r/:code',
     loadComponent: () => import('./features/recipes/public-recipe').then((m) => m.PublicRecipePage),

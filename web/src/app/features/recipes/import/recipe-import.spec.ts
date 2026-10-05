@@ -18,11 +18,13 @@ describe('RecipeImport', () => {
 
   afterEach(() => backend.verify());
 
-  /** The preview asks for the recipes already in the box. */
-  const existing = (items: object[]) =>
+  /** The preview asks for the recipes already in the box, and the Saved ones. */
+  const existing = (items: object[], saved: object[] = []) => {
     backend
       .expectOne((r) => r.url === '/api/v1/recipes' && r.method === 'GET')
       .flush({ items, total: items.length, limit: 100, offset: 0 });
+    backend.expectOne('/api/v1/saved-recipes').flush({ items: saved });
+  };
 
   const button = (el: HTMLElement, label: string) =>
     Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.includes(label))!;

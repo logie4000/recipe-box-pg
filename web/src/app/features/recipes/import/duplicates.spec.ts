@@ -19,6 +19,15 @@ describe('findDuplicates', () => {
     expect(findDuplicates([r('Soup'), r('Stew'), r('SOUP')], [])).toEqual([null, null, 'in-file']);
   });
 
+  it('matches by Recipe Box ID even when the contents changed, and spots Saved recipes', () => {
+    const mine = { ...r('Soup'), public_id: 'SoupSoup0002' };
+    const imported = [
+      { ...r('Soup, improved', ['2 eggs']), publicId: 'SoupSoup0002' },
+      { ...r('Chili'), publicId: 'ChiliChili03' },
+    ];
+    expect(findDuplicates(imported, [mine], ['ChiliChili03'])).toEqual(['exists', 'saved']);
+  });
+
   it('only warns when the title matches but the contents differ', () => {
     expect(findDuplicates([r('Chili', ['Beans', 'Beef'])], [r('Chili', ['Beans'])])).toEqual([
       'same-title',

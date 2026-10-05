@@ -50,7 +50,11 @@ describe('PublicRecipePage', () => {
     expect(el.querySelector('img')?.getAttribute('src')).toBe(
       '/api/v1/public/recipes/k7Xq2mP9vR4t/image',
     );
-    expect(el.querySelector('button, input, textarea')).toBeNull();
+    // Read-only: no form fields, and the only button is Export.
+    expect(el.querySelector('input, textarea')).toBeNull();
+    expect(
+      Array.from(el.querySelectorAll('button')).map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['Export']);
   });
 
   it('says the same thing for private, deleted and unknown recipes', async () => {

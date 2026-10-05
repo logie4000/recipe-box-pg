@@ -3,7 +3,8 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { Recipe, RecipesApi } from './recipes.api';
 
 /**
- * Private or shared. Shared means anyone with the link can read the recipe
+ * Private or public. Public means it's listed in All Recipes for signed-in
+ * users, and anyone with the link can read the recipe
  * (and see its photo) without signing in; nobody else can change it. The link
  * uses the recipe's random 12-character code and never changes, so turning
  * sharing off and on again revives old links.
@@ -16,7 +17,7 @@ import { Recipe, RecipesApi } from './recipes.api';
         class="switch"
         [title]="
           recipe().is_public
-            ? 'Anyone with the link can view this recipe.'
+            ? 'Anyone signed in can find it in All Recipes, and anyone with the link can view it.'
             : 'Only you can see this recipe.'
         "
       >
@@ -29,7 +30,7 @@ import { Recipe, RecipesApi } from './recipes.api';
           (change)="toggle(toggleBox)"
         />
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
-        <span class="state">{{ recipe().is_public ? 'Shared' : 'Private' }}</span>
+        <span class="state">{{ recipe().is_public ? 'Public' : 'Private' }}</span>
       </label>
       <span class="spacer"></span>
       <ng-content />
@@ -64,55 +65,6 @@ import { Recipe, RecipesApi } from './recipes.api';
     }
     .spacer {
       flex: 1;
-    }
-    .switch {
-      display: inline-flex;
-      gap: 0.5rem;
-      align-items: center;
-      margin: 0;
-      cursor: pointer;
-    }
-    /* The real checkbox stays focusable and clickable, just invisible over the track. */
-    .switch input {
-      position: absolute;
-      opacity: 0;
-      width: 2.75rem;
-      height: 1.5rem;
-      margin: 0;
-      cursor: pointer;
-    }
-    .track {
-      position: relative;
-      width: 2.75rem;
-      height: 1.5rem;
-      border: 2px solid #000;
-      border-radius: 999px;
-      background: var(--border);
-      transition: background 0.15s;
-    }
-    .knob {
-      position: absolute;
-      top: 1px;
-      left: 1px;
-      width: 1.1rem;
-      height: 1.1rem;
-      border-radius: 50%;
-      background: #fff;
-      border: 1px solid #000;
-      transition: transform 0.15s;
-    }
-    input:checked + .track {
-      background: var(--menu);
-    }
-    input:checked + .track .knob {
-      transform: translateX(1.25rem);
-    }
-    input:focus-visible + .track {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-    input:disabled + .track {
-      opacity: 0.5;
     }
     .state {
       font-weight: 700;

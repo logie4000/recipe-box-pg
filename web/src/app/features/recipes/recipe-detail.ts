@@ -27,6 +27,9 @@ import { SharePanel } from './share-panel';
       <div class="recipe-top">
         <div class="left">
           <h1>{{ r.title }}</h1>
+          @if (r.author_name) {
+            <p class="byline">by {{ r.author_name }}</p>
+          }
           <app-share-panel [recipe]="r" (changed)="recipe.set($event)">
             <a
               [routerLink]="['/recipes', r.id, 'edit']"
@@ -124,6 +127,11 @@ import { SharePanel } from './share-panel';
     h1 {
       margin: 0.5rem 0 1rem;
     }
+    .byline {
+      margin: -0.5rem 0 1rem;
+      font-family: var(--font-type);
+      font-weight: 700;
+    }
     /* Narrow: panel, then photo, then notes, all above the black rule. */
     @media (max-width: 900px) {
       .recipe-top {
@@ -132,22 +140,6 @@ import { SharePanel } from './share-panel';
         grid-template-areas: 'panel' 'photo' 'notes';
         row-gap: 1rem;
       }
-    }
-    .icon {
-      display: inline-grid;
-      place-items: center;
-      width: 2.25rem;
-      height: 2.25rem;
-      padding: 0;
-    }
-    .icon svg {
-      width: 1.25rem;
-      height: 1.25rem;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
     }
     .danger {
       color: var(--error);

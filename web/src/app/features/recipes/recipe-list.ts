@@ -36,6 +36,7 @@ const PAGE_SIZE = 24;
             <tr>
               <th class="thumb"><span class="visually-hidden">Photo</span></th>
               <th>Title</th>
+              <th class="hide-narrow">Author</th>
               <th class="hide-narrow">Contents</th>
               <th>Sharing</th>
               <th class="hide-narrow">Updated</th>
@@ -50,13 +51,14 @@ const PAGE_SIZE = 24;
                 <td>
                   <a [routerLink]="['/recipes', recipe.id]" class="title">{{ recipe.title }}</a>
                 </td>
+                <td class="hide-narrow">{{ recipe.author_name }}</td>
                 <td class="hide-narrow muted">
                   {{ recipe.ingredients.length }}
                   {{ recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }},
                   {{ recipe.directions.length }}
                   {{ recipe.directions.length === 1 ? 'step' : 'steps' }}
                 </td>
-                <td>{{ recipe.is_public ? 'Shared' : 'Private' }}</td>
+                <td>{{ recipe.is_public ? 'Public' : 'Private' }}</td>
                 <td class="hide-narrow muted">{{ recipe.updated_at | date: 'mediumDate' }}</td>
               </tr>
             }

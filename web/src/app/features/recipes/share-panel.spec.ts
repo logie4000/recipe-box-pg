@@ -13,6 +13,7 @@ const recipe: Recipe = {
   directions: [],
   notes: '',
   image_key: null,
+  author_name: null,
   is_public: false,
   created_at: '',
   updated_at: '',

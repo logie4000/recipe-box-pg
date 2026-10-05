@@ -70,6 +70,9 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, '" + pancakesImage + "', now(), now()), " +
 			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, '" + soupImage + "', now(), now()), " +
 			"(3, '" + chiliPublicID + "', 'bob', 'Chili', '{beans}', '{Simmer}', false, NULL, now(), now())",
+		"UPDATE recipes SET author_name = 'Alice A' WHERE owner_sub = 'alice'",
+		// Bob saved Soup (shared) and Pancakes (since made private); Carol saved Soup.
+		"INSERT INTO saved_recipes (user_sub, recipe_id, created_at) VALUES ('bob', 2, now()), ('bob', 1, now()), ('carol', 2, now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
 			t.Fatalf("setup %q: %v", firstLine(stmt), err)
@@ -107,6 +110,7 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 	})
 
 	testRecipes(ctx, t, pool)
+	testSavedRecipes(ctx, t, pool)
 
 	t.Run("RLS limits private notes to the caller", func(t *testing.T) {
 		for user, want := range map[string]int{"alice": 1, "bob": 1, "": 0} {
@@ -250,6 +254,91 @@ func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 		})
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+}
+
+func testSavedRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	t.Run("shared list: only shared recipes, marked mine for their owner", func(t *testing.T) {
+		for user, wantMine := range map[string]bool{"alice": true, "bob": false} {
+			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
+				rows, err := q.ListSharedRecipes(ctx, sqlc.ListSharedRecipesParams{CallerSub: user, PageLimit: 10})
+				if err != nil {
+					return err
+				}
+				if len(rows) != 1 || rows[0].PublicID != soupPublicID || rows[0].Mine != wantMine || rows[0].AuthorName.String != "Alice A" {
+					return fmt.Errorf("user %q listed %+v, want only Soup (mine=%v)", user, rows, wantMine)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+
+	t.Run("saved: a user sees their own bookmarks, minus recipes no longer shared", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "bob"}, func(q *sqlc.Queries) error {
+			rows, err := q.ListSavedRecipes(ctx, "bob")
+			if err != nil {
+				return err
+			}
+			if len(rows) != 1 || rows[0].PublicID != soupPublicID {
+				return fmt.Errorf("bob's saved = %+v, want only Soup", rows)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("saved: RLS hides other users' bookmarks even if the query asks for them", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "bob"}, func(q *sqlc.Queries) error {
+			rows, err := q.ListSavedRecipes(ctx, "carol")
+			if err != nil {
+				return err
+			}
+			if len(rows) != 0 {
+				return fmt.Errorf("bob saw carol's bookmarks: %+v", rows)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("saved status: saved for bob, mine for alice, 404 for private recipes", func(t *testing.T) {
+		cases := []struct {
+			user, publicID string
+			want           sqlc.GetSavedStatusRow
+			notFound       bool
+		}{
+			{"bob", soupPublicID, sqlc.GetSavedStatusRow{Saved: true}, false},
+			{"alice", soupPublicID, sqlc.GetSavedStatusRow{Mine: true}, false},
+			{"bob", pancakesPublicID, sqlc.GetSavedStatusRow{}, true},
+		}
+		for _, c := range cases {
+			err := ReadTx(ctx, pool, RequestContext{UserID: c.user}, func(q *sqlc.Queries) error {
+				got, err := q.GetSavedStatus(ctx, sqlc.GetSavedStatusParams{CallerSub: c.user, PublicID: c.publicID})
+				if c.notFound {
+					if !errors.Is(err, pgx.ErrNoRows) {
+						return fmt.Errorf("%s/%s: err = %v, want no rows", c.user, c.publicID, err)
+					}
+					return nil
+				}
+				if err != nil {
+					return err
+				}
+				if got != c.want {
+					return fmt.Errorf("%s/%s = %+v, want %+v", c.user, c.publicID, got, c.want)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 }

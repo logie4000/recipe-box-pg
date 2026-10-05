@@ -11,13 +11,22 @@ import { RECIPE_BOX_FORMAT } from './recipe-import-parse';
 @Injectable({ providedIn: 'root' })
 export class RecipeExport {
   /** One recipe is named after its title (pancakes.json); several after the date. */
-  download(recipes: Pick<Recipe, 'title' | 'ingredients' | 'directions' | 'notes'>[]): void {
+  download(
+    recipes: Pick<
+      Recipe,
+      'title' | 'ingredients' | 'directions' | 'notes' | 'author_name' | 'public_id'
+    >[],
+  ): void {
     const file = {
       format: RECIPE_BOX_FORMAT,
       version: 1,
       exported_at: new Date().toISOString(),
-      recipes: recipes.map(({ title, ingredients, directions, notes }) => ({
+      // author and public_id say where each recipe came from, so Import can
+      // spot copies of recipes you already have or have saved.
+      recipes: recipes.map(({ title, ingredients, directions, notes, author_name, public_id }) => ({
         title,
+        author: author_name,
+        public_id,
         ingredients,
         directions,
         notes,

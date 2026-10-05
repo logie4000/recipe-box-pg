@@ -12,6 +12,8 @@ export interface Recipe {
   ingredients: string[];
   directions: string[];
   notes: string;
+  /** The owner's display name when they last saved it; null on older recipes. */
+  author_name: string | null;
   image_key: string | null;
   is_public: boolean;
   created_at: string;
@@ -23,6 +25,7 @@ export type PublicRecipe = Pick<
   Recipe,
   | 'public_id'
   | 'title'
+  | 'author_name'
   | 'ingredients'
   | 'directions'
   | 'notes'
@@ -30,6 +33,27 @@ export type PublicRecipe = Pick<
   | 'created_at'
   | 'updated_at'
 >;
+
+/** A row of the shared-recipes list (GET /api/v1/shared-recipes): counts, not the lists. */
+export interface SharedRecipe {
+  public_id: string;
+  title: string;
+  author_name: string | null;
+  image_key: string | null;
+  ingredient_count: number;
+  direction_count: number;
+  /** The caller's own recipe. */
+  mine: boolean;
+  updated_at: string;
+}
+
+/** One of the caller's bookmarks of someone else's shared recipe. */
+export type SavedRecipe = Omit<SharedRecipe, 'mine' | 'updated_at'> & { saved_at: string };
+
+export interface SavedStatus {
+  mine: boolean;
+  saved: boolean;
+}
 
 export interface Page<T> {
   items: T[];
@@ -108,6 +132,28 @@ export class RecipesApi {
   /** The owner's photo needs the bearer token, which an <img> can't send, so it comes as a blob. */
   imageBlob(id: number): Observable<Blob> {
     return this.http.get(`${this.base}/${id}/image`, { responseType: 'blob' });
+  }
+
+  /** Every shared recipe on the site, by title (signed-in users only). */
+  listShared(): Observable<Page<SharedRecipe>> {
+    const params = new HttpParams().set('limit', 1000);
+    return this.http.get<Page<SharedRecipe>>(`${environment.api}/shared-recipes`, { params });
+  }
+
+  listSaved(): Observable<{ items: SavedRecipe[] }> {
+    return this.http.get<{ items: SavedRecipe[] }>(`${environment.api}/saved-recipes`);
+  }
+
+  savedStatus(publicId: string): Observable<SavedStatus> {
+    return this.http.get<SavedStatus>(`${environment.api}/saved-recipes/${publicId}`);
+  }
+
+  save(publicId: string): Observable<unknown> {
+    return this.http.post(`${environment.api}/saved-recipes`, { public_id: publicId });
+  }
+
+  unsave(publicId: string): Observable<unknown> {
+    return this.http.delete(`${environment.api}/saved-recipes/${publicId}`);
   }
 
   getPublic(publicId: string): Observable<PublicRecipe> {
