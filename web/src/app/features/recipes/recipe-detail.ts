@@ -14,7 +14,7 @@ import { SharePanel } from './share-panel';
   selector: 'app-recipe-detail',
   imports: [RouterLink, DatePipe, RecipeBody, RecipePhoto, SharePanel],
   template: `
-    <p><a routerLink="/recipes">← My recipes</a></p>
+    <p><a routerLink="/recipes">← My Recipes</a></p>
 
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>

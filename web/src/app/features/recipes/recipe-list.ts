@@ -15,21 +15,21 @@ const LAYOUT_KEY = 'recipe-box.my-recipes-layout';
   imports: [RouterLink, DatePipe, RecipePhoto, RecipeCard],
   template: `
     <header class="row">
-      <h1>My recipes</h1>
-      @if (recipes().length) {
-        <label class="switch" title="Show recipes as photo cards or as a list">
-          <input
-            type="checkbox"
-            role="switch"
-            [checked]="asList()"
-            (change)="setAsList($any($event.target).checked)"
-            data-testid="layout-switch"
-          />
-          <span class="track" aria-hidden="true"><span class="knob"></span></span>
-          <strong>{{ asList() ? 'List' : 'Cards' }}</strong>
-        </label>
-      }
+      <h1>My Recipes</h1>
       <div class="actions">
+        @if (recipes().length) {
+          <label class="switch layout" title="Show recipes as photo cards or as a list">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="asList()"
+              (change)="setAsList($any($event.target).checked)"
+              data-testid="layout-switch"
+            />
+            <span class="track" aria-hidden="true"><span class="knob"></span></span>
+            <strong>{{ asList() ? 'List' : 'Cards' }}</strong>
+          </label>
+        }
         <a routerLink="/recipes/import" class="button">Import</a>
         @if (total()) {
           <a routerLink="/recipes/export" class="button">Export</a>
@@ -121,6 +121,9 @@ const LAYOUT_KEY = 'recipe-box.my-recipes-layout';
     }
   `,
   styles: `
+    .layout {
+      margin-right: 0.5rem;
+    }
     tbody tr {
       cursor: pointer;
     }
