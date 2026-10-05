@@ -1,7 +1,7 @@
 import { Component, computed, inject, input, output, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth.service';
-import { RecipeBody } from '../recipe-body';
+import { RecipePreview } from '../recipe-preview';
 import { ImportedRecipe, LIMITS } from './recipe-import-parse';
 
 type Tab = 'edit' | 'preview';
@@ -14,7 +14,7 @@ type Tab = 'edit' | 'preview';
  */
 @Component({
   selector: 'app-import-recipe-editor',
-  imports: [RecipeBody],
+  imports: [RecipePreview],
   template: `
     <div class="tabs" role="tablist" aria-label="Edit or preview">
       <button
@@ -86,27 +86,14 @@ type Tab = 'edit' | 'preview';
           ></textarea>
         </label>
       } @else {
-        <article class="preview" data-testid="preview">
-          <div class="recipe-top">
-            <div class="panel">
-              <h1>{{ recipe().title || 'Untitled' }}</h1>
-              @if (author()) {
-                <p class="byline">by {{ author() }}</p>
-              }
-            </div>
-            <div class="photo" aria-hidden="true">
-              <span>🍽</span>
-              <span class="muted">Add a photo after importing</span>
-            </div>
-            @if (recipe().notes.trim()) {
-              <p class="notes">{{ recipe().notes.trim() }}</p>
-            }
-          </div>
-          <app-recipe-body
-            [ingredients]="tidy(recipe().ingredients)"
-            [directions]="tidy(recipe().directions)"
-          />
-        </article>
+        <app-recipe-preview
+          [title]="recipe().title"
+          [author]="author()"
+          [notes]="recipe().notes"
+          [ingredients]="recipe().ingredients"
+          [directions]="recipe().directions"
+          photoHint="Add a photo after importing"
+        />
       }
     </div>
   `,
@@ -115,25 +102,6 @@ type Tab = 'edit' | 'preview';
       display: block;
       background: var(--bg);
       border-top: 2px solid #000;
-    }
-    .tabs {
-      display: flex;
-      gap: 0.25rem;
-      padding: 0.5rem 0.6rem 0;
-      border-bottom: 1px solid #000;
-      background: var(--panel);
-    }
-    .tabs button {
-      border: 1px solid transparent;
-      border-bottom: none;
-      border-radius: 4px 4px 0 0;
-      background: none;
-      margin-bottom: -1px;
-    }
-    .tabs button.active {
-      border-color: #000;
-      background: var(--bg);
-      font-weight: 700;
     }
     .pane {
       padding: 1rem;
@@ -149,59 +117,9 @@ type Tab = 'edit' | 'preview';
     textarea {
       font-family: var(--font-type);
     }
-    /* Same layout as the recipe page: 400px panel beside a 600px photo. */
-    .recipe-top {
-      display: grid;
-      grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-      grid-template-areas:
-        'panel photo'
-        'notes photo';
-      grid-template-rows: auto 1fr;
-      max-width: calc(1000px + 1.5rem);
-      column-gap: 1.5rem;
-      align-items: start;
-    }
-    .panel {
-      grid-area: panel;
-    }
-    .preview h1 {
-      margin: 0.25rem 0 1rem;
-    }
-    .byline {
-      margin: -0.5rem 0 1rem;
-      font-family: var(--font-type);
-      font-weight: 700;
-    }
-    .photo {
-      grid-area: photo;
-      display: grid;
-      place-items: center;
-      align-content: center;
-      gap: 0.25rem;
-      aspect-ratio: 4 / 3;
-      border: 2px dashed #000;
-      background: var(--panel);
-      font-size: 0.9rem;
-    }
-    .photo span:first-child {
-      font-size: 2rem;
-      opacity: 0.5;
-    }
-    .notes {
-      grid-area: notes;
-      margin: 0;
-      font-family: var(--font-type);
-      white-space: pre-line;
-    }
     @media (max-width: 900px) {
-      .lists,
-      .recipe-top {
+      .lists {
         grid-template-columns: 1fr;
-      }
-      .recipe-top {
-        grid-template-areas: 'panel' 'photo' 'notes';
-        grid-template-rows: auto;
-        row-gap: 1rem;
       }
     }
   `,
@@ -224,9 +142,5 @@ export class ImportRecipeEditor {
   /** Keep blank lines while typing; they're dropped when shown and saved. */
   protected lines(text: string): string[] {
     return text.split('\n');
-  }
-
-  protected tidy(items: string[]): string[] {
-    return items.map((s) => s.trim()).filter(Boolean);
   }
 }
