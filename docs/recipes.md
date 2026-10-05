@@ -145,7 +145,7 @@ as a blob; the public page uses the public URL directly.
 Recipe Box export, schema.org Recipe data (a JSON-LD file or a saved web
 page), or plain text with Ingredients / Directions / Notes sections. The
 chosen recipes are saved through `POST /api/v1/recipes`, private and without
-a photo. Export (on the list page) downloads every recipe as a Recipe Box
+a photo. `/recipes/export` downloads the recipes you tick as a Recipe Box
 file, `{format: "recipe-box", version: 1, recipes: [{title, ingredients, directions, notes}]}`.
 
 To move recipes from the original Recipe Box (teapothill.org), which has no
