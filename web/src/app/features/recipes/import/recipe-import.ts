@@ -124,6 +124,9 @@ interface Row {
               </td>
               <td>
                 <strong>{{ row.recipe.title }}</strong>
+                @if (row.recipe.author) {
+                  <span class="muted"> by {{ row.recipe.author }}</span>
+                }
                 @if (row.recipe.notes) {
                   <div class="muted small">{{ row.recipe.notes }}</div>
                 }
@@ -250,6 +253,7 @@ export class RecipeImport {
   protected readonly duplicateLabel: Record<DuplicateKind, string> = {
     exists: 'Already in your box',
     'in-file': 'Repeated in this file',
+    saved: 'In your Saved recipes',
     'same-title': 'Same title as one you have, different contents',
   };
 
@@ -317,7 +321,15 @@ export class RecipeImport {
     this.checking.set(true);
     let duplicates: (DuplicateKind | null)[];
     try {
-      duplicates = findDuplicates(result.recipes, await firstValueFrom(this.api.listAll()));
+      const [mine, saved] = await Promise.all([
+        firstValueFrom(this.api.listAll()),
+        firstValueFrom(this.api.listSaved()),
+      ]);
+      duplicates = findDuplicates(
+        result.recipes,
+        mine,
+        saved.items.map((r) => r.public_id),
+      );
     } catch {
       this.checkFailed.set(true);
       duplicates = findDuplicates(result.recipes, []);
@@ -356,7 +368,11 @@ export class RecipeImport {
       this.progress.update((n) => n + 1);
       let patch: Partial<Row>;
       try {
-        const { id } = await firstValueFrom(this.api.create(rows[i].recipe));
+        // Author and ID only describe the source; the new recipe is the importer's.
+        const { title, ingredients, directions, notes } = rows[i].recipe;
+        const { id } = await firstValueFrom(
+          this.api.create({ title, ingredients, directions, notes }),
+        );
         patch = { savedId: id };
       } catch (err) {
         patch = { error: describe(err) };

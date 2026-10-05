@@ -23,7 +23,7 @@ import { SaveButton } from './save-button';
       <p>Loading…</p>
     } @else if (!recipes().length) {
       <p class="muted">
-        Nothing saved yet. Open a recipe in <a routerLink="/public">Public recipes</a> and use the
+        Nothing saved yet. Open a recipe in <a routerLink="/public">All Recipes</a> and use the
         bookmark icon to save it here.
       </p>
     } @else {

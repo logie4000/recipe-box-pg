@@ -30,7 +30,16 @@ export interface ImportedRecipe {
   ingredients: string[];
   directions: string[];
   notes: string;
+  /**
+   * Where it came from, when the file says: the author's name and the
+   * recipe's 12-character Recipe Box ID. Shown in the preview and used to
+   * spot duplicates; never saved (an imported recipe is the importer's).
+   */
+  author?: string;
+  publicId?: string;
 }
+
+const PUBLIC_ID = /^[A-Za-z0-9]{12}$/;
 
 export interface ParseResult {
   /** What the input was recognised as. */
@@ -95,6 +104,8 @@ function fromRecipeBox(item: unknown): ImportedRecipe {
     ingredients: strings(r['ingredients']),
     directions: strings(r['directions']),
     notes: str(r['notes']),
+    author: str(r['author'] ?? r['author_name']),
+    publicId: PUBLIC_ID.test(str(r['public_id'])) ? str(r['public_id']) : undefined,
   };
 }
 
@@ -154,7 +165,14 @@ function fromSchema(r: Record<string, unknown>): ImportedRecipe {
     ingredients: strings(r['recipeIngredient'] ?? r['ingredients']).map(cleanHtml),
     directions: instructions(r['recipeInstructions']).map(cleanHtml),
     notes: notes.filter(Boolean).join('\n\n'),
+    author: cleanHtml(schemaAuthor(r['author'])),
   };
+}
+
+/** author: "Name", {name}, or a list of either (first one wins). */
+function schemaAuthor(value: unknown): string {
+  const first = Array.isArray(value) ? value[0] : value;
+  return isObject(first) ? str(first['name']) : str(first);
 }
 
 /** recipeInstructions: a string, strings, HowToSteps, or HowToSections of steps. */
@@ -272,6 +290,8 @@ function clip(r: ImportedRecipe): ImportedRecipe {
     ingredients: list(r.ingredients),
     directions: list(r.directions),
     notes: r.notes.trim().slice(0, LIMITS.notes),
+    ...(r.author?.trim() ? { author: r.author.replace(/\s+/g, ' ').trim().slice(0, 100) } : {}),
+    ...(r.publicId ? { publicId: r.publicId } : {}),
   };
 }
 

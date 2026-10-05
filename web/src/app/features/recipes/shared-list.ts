@@ -23,7 +23,7 @@ interface AuthorGroup {
   imports: [RouterLink, NgTemplateOutlet],
   template: `
     <header class="row">
-      <h1>Public recipes</h1>
+      <h1>All recipes</h1>
       @if (recipes().length) {
         <label class="switch" title="List by title, or group by author">
           <input
@@ -247,7 +247,7 @@ export class SharedList implements OnInit {
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('Could not load the public recipes.');
+        this.error.set('Could not load the recipes.');
         this.loading.set(false);
       },
     });

@@ -11,15 +11,28 @@ describe('parseImport', () => {
           ingredients: ['1 onion', ' '],
           directions: ['Chop'],
           notes: 'Hot',
+          author: ' Alice  Cook ',
+          public_id: 'SoupSoup0002',
           is_public: true,
           id: 4,
         },
+        { title: 'Bad id', public_id: 'nope' },
       ],
     });
     expect(parseImport(file)).toEqual({
       source: 'recipe-box',
       skipped: 0,
-      recipes: [{ title: 'Soup', ingredients: ['1 onion'], directions: ['Chop'], notes: 'Hot' }],
+      recipes: [
+        {
+          title: 'Soup',
+          ingredients: ['1 onion'],
+          directions: ['Chop'],
+          notes: 'Hot',
+          author: 'Alice Cook',
+          publicId: 'SoupSoup0002',
+        },
+        { title: 'Bad id', ingredients: [], directions: [], notes: '' },
+      ],
     });
   });
 
@@ -31,6 +44,7 @@ describe('parseImport', () => {
         {
           '@type': ['Recipe'],
           name: 'Mac &amp; cheese',
+          author: [{ '@type': 'Person', name: 'Chef Jo' }],
           description: 'Creamy.',
           recipeYield: ['4', '4 servings'],
           url: 'https://example.com/mac',
@@ -55,6 +69,7 @@ describe('parseImport', () => {
         ingredients: ['1 lb pasta', '2 cups cheese'],
         directions: ['Boil.', 'Stir in cheese.', 'Serve.'],
         notes: 'Creamy.\n\nMakes: 4\n\nSource: https://example.com/mac',
+        author: 'Chef Jo',
       },
     ]);
   });
