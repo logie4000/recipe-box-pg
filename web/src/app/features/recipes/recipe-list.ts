@@ -7,7 +7,7 @@ import { RecipePhoto } from './recipe-photo';
 
 const PAGE_SIZE = 24;
 
-/** The signed-in user's own recipes, newest first. Nobody else's ever show up here. */
+/** The signed-in user's own recipes, by title. Nobody else's ever show up here. */
 @Component({
   selector: 'app-recipe-list',
   imports: [RouterLink, DatePipe, RecipePhoto],
@@ -77,7 +77,7 @@ const PAGE_SIZE = 24;
       @if (total() > pageSize) {
         <nav class="pager">
           <button type="button" (click)="go(offset() - pageSize)" [disabled]="offset() === 0">
-            Newer
+            Previous
           </button>
           <span class="muted">
             {{ offset() + 1 }}–{{ offset() + recipes().length }} of {{ total() }}
@@ -87,7 +87,7 @@ const PAGE_SIZE = 24;
             (click)="go(offset() + pageSize)"
             [disabled]="offset() + pageSize >= total()"
           >
-            Older
+            Next
           </button>
         </nav>
       }

@@ -140,6 +140,22 @@ const (
 )
 
 func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	t.Run("recipes: an owner's list is alphabetical", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "alice"}, func(q *sqlc.Queries) error {
+			rows, err := q.ListRecipes(ctx, sqlc.ListRecipesParams{OwnerSub: "alice", Limit: 10})
+			if err != nil {
+				return err
+			}
+			if len(rows) != 2 || rows[0].Title != "Pancakes" || rows[1].Title != "Soup" {
+				return fmt.Errorf("alice's list = %+v, want Pancakes then Soup", rows)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("recipes: each owner sees only their own", func(t *testing.T) {
 		for user, want := range map[string]int{"alice": 2, "bob": 1, "": 0} {
 			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
