@@ -3,17 +3,32 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
 import { Recipe, RecipesApi } from './recipes.api';
+import { countsLabel, RecipeCard } from './recipe-card';
 import { RecipePhoto } from './recipe-photo';
 
 const PAGE_SIZE = 12;
+const LAYOUT_KEY = 'recipe-box.my-recipes-layout';
 
 /** The signed-in user's own recipes, by title. Nobody else's ever show up here. */
 @Component({
   selector: 'app-recipe-list',
-  imports: [RouterLink, DatePipe, RecipePhoto],
+  imports: [RouterLink, DatePipe, RecipePhoto, RecipeCard],
   template: `
     <header class="row">
       <h1>My recipes</h1>
+      @if (recipes().length) {
+        <label class="switch" title="Show recipes as photo cards or as a list">
+          <input
+            type="checkbox"
+            role="switch"
+            [checked]="asList()"
+            (change)="setAsList($any($event.target).checked)"
+            data-testid="layout-switch"
+          />
+          <span class="track" aria-hidden="true"><span class="knob"></span></span>
+          <strong>{{ asList() ? 'List' : 'Cards' }}</strong>
+        </label>
+      }
       <div class="actions">
         <a routerLink="/recipes/import" class="button">Import</a>
         @if (total()) {
@@ -30,13 +45,26 @@ const PAGE_SIZE = 12;
     @if (loading()) {
       <p>Loading…</p>
     } @else {
-      @if (recipes().length) {
+      @if (recipes().length && !asList()) {
+        <ul class="card-grid">
+          @for (recipe of recipes(); track recipe.id) {
+            <li>
+              <app-recipe-card
+                [title]="recipe.title"
+                [link]="['/recipes', recipe.id]"
+                [ownPhoto]="{ id: recipe.id, imageKey: recipe.image_key }"
+                [badge]="recipe.is_public ? 'Public' : ''"
+                [details]="counts(recipe)"
+              />
+            </li>
+          }
+        </ul>
+      } @else if (recipes().length) {
         <table class="list">
           <thead>
             <tr>
               <th class="thumb"><span class="visually-hidden">Photo</span></th>
               <th>Title</th>
-              <th class="hide-narrow">Author</th>
               <th class="hide-narrow">Contents</th>
               <th>Sharing</th>
               <th class="hide-narrow">Updated</th>
@@ -51,7 +79,6 @@ const PAGE_SIZE = 12;
                 <td>
                   <a [routerLink]="['/recipes', recipe.id]" class="title">{{ recipe.title }}</a>
                 </td>
-                <td class="hide-narrow">{{ recipe.author_name }}</td>
                 <td class="hide-narrow muted">
                   {{ recipe.ingredients.length }}
                   {{ recipe.ingredients.length === 1 ? 'ingredient' : 'ingredients' }},
@@ -152,9 +179,24 @@ export class RecipeList implements OnInit {
   protected readonly offset = signal(0);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  /** Cards (the default) or the table; remembered on this browser. */
+  protected readonly asList = signal(readLayout() === 'list');
 
   ngOnInit(): void {
     this.go(0);
+  }
+
+  protected setAsList(on: boolean): void {
+    this.asList.set(on);
+    try {
+      localStorage.setItem(LAYOUT_KEY, on ? 'list' : 'cards');
+    } catch {
+      // Private windows may refuse; the switch still works for this visit.
+    }
+  }
+
+  protected counts(r: Recipe): string {
+    return countsLabel(r.ingredients.length, r.directions.length);
   }
 
   /** The whole row opens the recipe; the title link is there for keyboards. */
@@ -177,5 +219,13 @@ export class RecipeList implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+}
+
+function readLayout(): string | null {
+  try {
+    return localStorage.getItem(LAYOUT_KEY);
+  } catch {
+    return null;
   }
 }

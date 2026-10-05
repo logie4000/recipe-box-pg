@@ -284,3 +284,14 @@ table.list {
   background: var(--bg);
   font-weight: 700;
 }
+
+// Grid of recipe cards (app-recipe-card): about four across on a wide
+// screen, down to one on a phone.
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 1.75rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

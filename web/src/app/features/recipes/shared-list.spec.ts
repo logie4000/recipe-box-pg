@@ -50,21 +50,36 @@ describe('SharedList', () => {
         limit: 1000,
         offset: 0,
       });
+    backend.expectOne('/api/v1/saved-recipes').flush({ items: [shared('t', 'Toast', 'Bob B')] });
     await fixture.whenStable();
     return fixture;
   }
 
-  it('lists every shared recipe by title, with authors and the caller’s own marked', async () => {
+  const cards = (el: HTMLElement) => Array.from(el.querySelectorAll('app-recipe-card'));
+
+  it('shows every public recipe as a card by title, with authors and bookmarks', async () => {
     const el = (await load()).nativeElement as HTMLElement;
-    const rows = Array.from(el.querySelectorAll('tbody tr')).map((tr) => tr.textContent ?? '');
-    expect(rows.length).toBe(4);
-    expect(rows[0]).toContain('Apple pie');
-    expect(rows[0]).toContain('Bob B');
-    expect(rows[1]).toContain('Yours');
-    expect(rows[2]).toContain('Unknown author');
+    const all = cards(el);
+    expect(all.map((c) => c.querySelector('.title')?.textContent?.trim())).toEqual([
+      'Apple pie',
+      'Chili',
+      'Soup',
+      'Toast',
+    ]);
+    expect(all[0].textContent).toContain('by Bob B');
+    expect(all[2].textContent).toContain('by Unknown author');
+    expect(all[0].querySelector('a')?.getAttribute('href')).toBe('/r/axxxxxxxxxxx');
+
+    // Your own recipe: a "Yours" tag and no bookmark. Others: a bookmark, filled if saved.
+    expect(all[1].textContent).toContain('Yours');
+    expect(all[1].querySelector('app-save-button')).toBeNull();
+    const pressed = (c: Element) =>
+      c.querySelector('app-save-button button')?.getAttribute('aria-pressed');
+    expect(pressed(all[0])).toBe('false');
+    expect(pressed(all[3])).toBe('true');
   });
 
-  it('switches to authors as twisties that show and hide their recipes', async () => {
+  it('switches to authors as twisties that show and hide their cards', async () => {
     const fixture = await load();
     const el = fixture.nativeElement as HTMLElement;
     el.querySelector<HTMLInputElement>('[data-testid="view-switch"]')!.click();
@@ -75,17 +90,20 @@ describe('SharedList', () => {
         b.textContent!.replace(/\s+/g, ' ').trim(),
       );
     expect(titles()).toEqual(['▸ Alice A (1)', '▸ Bob B (2)', '▸ Unknown author (1)']);
-    expect(el.querySelectorAll('tbody tr').length).toBe(0);
+    expect(cards(el).length).toBe(0);
 
     el.querySelectorAll<HTMLButtonElement>('.twistie-title')[1].click();
     await fixture.whenStable();
-    const bobs = Array.from(el.querySelectorAll('tbody tr')).map((tr) => tr.textContent);
-    expect(bobs.length).toBe(2);
-    expect(bobs[0]).toContain('Apple pie');
-    expect(bobs[1]).toContain('Toast');
+    const bobs = cards(el);
+    expect(bobs.map((c) => c.querySelector('.title')?.textContent?.trim())).toEqual([
+      'Apple pie',
+      'Toast',
+    ]);
+    // Inside an author's group the byline would repeat the heading, so it's left off.
+    expect(bobs[0].textContent).not.toContain('by Bob B');
 
     el.querySelectorAll<HTMLButtonElement>('.twistie-title')[1].click();
     await fixture.whenStable();
-    expect(el.querySelectorAll('tbody tr').length).toBe(0);
+    expect(cards(el).length).toBe(0);
   });
 });
