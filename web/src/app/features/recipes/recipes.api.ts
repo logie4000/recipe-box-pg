@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { EMPTY, expand, map, Observable, reduce } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
 
@@ -59,6 +59,19 @@ export class RecipesApi {
   list(limit = 20, offset = 0): Observable<Page<Recipe>> {
     const params = new HttpParams().set('limit', limit).set('offset', offset);
     return this.http.get<Page<Recipe>>(this.base, { params });
+  }
+
+  /** Every one of the caller's recipes, a page at a time (the read-api allows 100 per page). */
+  listAll(): Observable<Recipe[]> {
+    const pageSize = 100;
+    return this.list(pageSize, 0).pipe(
+      expand((page) => {
+        const next = page.offset + page.items.length;
+        return page.items.length && next < page.total ? this.list(pageSize, next) : EMPTY;
+      }),
+      map((page) => page.items),
+      reduce((all: Recipe[], items) => all.concat(items), []),
+    );
   }
 
   get(id: number): Observable<Recipe> {

@@ -3,6 +3,7 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
+import { RecipeExport } from './import/recipe-export';
 import { RecipeBody } from './recipe-body';
 import { RecipePhoto } from './recipe-photo';
 import { Recipe, RecipesApi } from './recipes.api';
@@ -38,6 +39,19 @@ import { SharePanel } from './share-panel';
                 <path d="M13.5 6.5l4 4" />
               </svg>
             </a>
+            <button
+              type="button"
+              class="icon"
+              title="Export"
+              aria-label="Export"
+              (click)="exporter.download([r])"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 4v11" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M5 20h14" />
+              </svg>
+            </button>
             <button
               type="button"
               class="icon danger"
@@ -154,6 +168,7 @@ export class RecipeDetail implements OnInit {
 
   private readonly api = inject(RecipesApi);
   private readonly router = inject(Router);
+  protected readonly exporter = inject(RecipeExport);
 
   protected readonly recipe = signal<Recipe | null>(null);
   protected readonly notFound = signal(false);

@@ -14,7 +14,13 @@ const PAGE_SIZE = 24;
   template: `
     <header class="row">
       <h1>My recipes</h1>
-      <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      <div class="actions">
+        <a routerLink="/recipes/import" class="button">Import</a>
+        @if (total()) {
+          <a routerLink="/recipes/export" class="button">Export</a>
+        }
+        <a routerLink="/recipes/new" class="button primary">New recipe</a>
+      </div>
     </header>
 
     @if (error()) {
@@ -59,7 +65,10 @@ const PAGE_SIZE = 24;
       } @else {
         <div class="empty">
           <p>Your recipe box is empty.</p>
-          <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+          <div class="actions center">
+            <a routerLink="/recipes/new" class="button primary">Add your first recipe</a>
+            <a routerLink="/recipes/import" class="button">Import recipes</a>
+          </div>
         </div>
       }
 
@@ -114,6 +123,9 @@ const PAGE_SIZE = 24;
       .hide-narrow {
         display: none;
       }
+    }
+    .center {
+      justify-content: center;
     }
     .empty {
       text-align: center;
