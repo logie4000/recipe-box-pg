@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Recipe, RecipesApi } from './recipes.api';
 import { RecipePhoto } from './recipe-photo';
 
-const PAGE_SIZE = 24;
+const PAGE_SIZE = 12;
 
 /** The signed-in user's own recipes, by title. Nobody else's ever show up here. */
 @Component({
