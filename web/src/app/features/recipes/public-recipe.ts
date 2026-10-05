@@ -3,6 +3,7 @@ import { Component, inject, input, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
+import { RecipeExport } from './import/recipe-export';
 import { RecipeBody } from './recipe-body';
 import { PublicRecipe, RecipesApi, SavedStatus } from './recipes.api';
 import { SaveButton } from './save-button';
@@ -21,25 +22,37 @@ import { SaveButton } from './save-button';
         <div class="recipe-top">
           <div class="panel">
             <h1>{{ r.title }}</h1>
-            @if (r.author_name || status()) {
-              <div class="bar">
-                @if (r.author_name) {
-                  <span class="byline">by {{ r.author_name }}</span>
+            <div class="bar">
+              @if (r.author_name) {
+                <span class="byline">by {{ r.author_name }}</span>
+              }
+              <span class="spacer"></span>
+              @if (status(); as s) {
+                @if (s.mine) {
+                  <a [routerLink]="['/recipes']" class="muted small">This is your recipe</a>
+                } @else {
+                  <app-save-button
+                    [publicId]="r.public_id"
+                    [saved]="s.saved"
+                    (savedChange)="status.set({ mine: false, saved: $event })"
+                  />
                 }
-                <span class="spacer"></span>
-                @if (status(); as s) {
-                  @if (s.mine) {
-                    <a [routerLink]="['/recipes']" class="muted small">This is your recipe</a>
-                  } @else {
-                    <app-save-button
-                      [publicId]="r.public_id"
-                      [saved]="s.saved"
-                      (savedChange)="status.set({ mine: false, saved: $event })"
-                    />
-                  }
-                }
-              </div>
-            }
+              }
+              <!-- Anyone who can read a shared recipe can take a copy as a file. -->
+              <button
+                type="button"
+                class="icon"
+                title="Export"
+                aria-label="Export"
+                (click)="exporter.download([r])"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 4v11" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M5 20h14" />
+                </svg>
+              </button>
+            </div>
           </div>
           @if (r.image_key && !imageFailed()) {
             <img
@@ -140,6 +153,7 @@ export class PublicRecipePage implements OnInit {
 
   protected readonly api = inject(RecipesApi);
   protected readonly auth = inject(AuthService);
+  protected readonly exporter = inject(RecipeExport);
 
   protected readonly recipe = signal<PublicRecipe | null>(null);
   protected readonly missing = signal(false);
