@@ -76,6 +76,17 @@ RSpec.describe "/api/v1/recipes" do
       expect(Recipe).to have_received(:generate_public_id).exactly(Recipe::PUBLIC_ID_ATTEMPTS).times
     end
 
+    it "records the author's display name from the token, and refreshes it on update" do
+      post "/api/v1/recipes", headers: auth_headers(sub: "alice-sub", name: "Alice Cook"), as: :json,
+           params: { recipe: { title: "Soup" } }
+      body = response.parsed_body["recipe"]
+      expect(body["author_name"]).to eq("Alice Cook")
+
+      patch "/api/v1/recipes/#{body["id"]}", headers: auth_headers(sub: "alice-sub", preferred_username: "alice"), as: :json,
+            params: { recipe: { title: "Soup!" } }
+      expect(response.parsed_body["recipe"]["author_name"]).to eq("alice")
+    end
+
     it "stores no notes as an empty string and rejects notes that are too long" do
       post "/api/v1/recipes", headers: alice, as: :json, params: { recipe: { title: "Soup" } }
       expect(response.parsed_body["recipe"]["notes"]).to eq("")

@@ -24,8 +24,19 @@ func (q *Queries) CountRecipes(ctx context.Context, ownerSub string) (int64, err
 	return count, err
 }
 
+const countSharedRecipes = `-- name: CountSharedRecipes :one
+SELECT count(*) FROM recipes WHERE is_public
+`
+
+func (q *Queries) CountSharedRecipes(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countSharedRecipes)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getPublicRecipe = `-- name: GetPublicRecipe :one
-SELECT public_id, title, ingredients, directions, notes, image_key, created_at, updated_at
+SELECT public_id, title, author_name, ingredients, directions, notes, image_key, created_at, updated_at
 FROM recipes
 WHERE public_id = $1 AND is_public
 `
@@ -33,6 +44,7 @@ WHERE public_id = $1 AND is_public
 type GetPublicRecipeRow struct {
 	PublicID    string      `json:"public_id"`
 	Title       string      `json:"title"`
+	AuthorName  pgtype.Text `json:"author_name"`
 	Ingredients []string    `json:"ingredients"`
 	Directions  []string    `json:"directions"`
 	Notes       string      `json:"notes"`
@@ -47,6 +59,7 @@ func (q *Queries) GetPublicRecipe(ctx context.Context, publicID string) (GetPubl
 	err := row.Scan(
 		&i.PublicID,
 		&i.Title,
+		&i.AuthorName,
 		&i.Ingredients,
 		&i.Directions,
 		&i.Notes,
@@ -128,6 +141,34 @@ func (q *Queries) GetRecipeImageKey(ctx context.Context, arg GetRecipeImageKeyPa
 	return image_key, err
 }
 
+const getSavedStatus = `-- name: GetSavedStatus :one
+SELECT (r.owner_sub = $1::text) AS mine,
+       EXISTS (
+         SELECT 1 FROM saved_recipes s
+         WHERE s.recipe_id = r.id AND s.user_sub = $1::text
+       ) AS saved
+FROM recipes r
+WHERE r.public_id = $2 AND r.is_public
+`
+
+type GetSavedStatusParams struct {
+	CallerSub string `json:"caller_sub"`
+	PublicID  string `json:"public_id"`
+}
+
+type GetSavedStatusRow struct {
+	Mine  bool `json:"mine"`
+	Saved bool `json:"saved"`
+}
+
+// Whether the caller owns or has saved one shared recipe.
+func (q *Queries) GetSavedStatus(ctx context.Context, arg GetSavedStatusParams) (GetSavedStatusRow, error) {
+	row := q.db.QueryRow(ctx, getSavedStatus, arg.CallerSub, arg.PublicID)
+	var i GetSavedStatusRow
+	err := row.Scan(&i.Mine, &i.Saved)
+	return i, err
+}
+
 const listRecipes = `-- name: ListRecipes :many
 SELECT id, public_id, title, ingredients, directions, notes, image_key, is_public, created_at, updated_at
 FROM recipes
@@ -174,6 +215,117 @@ func (q *Queries) ListRecipes(ctx context.Context, arg ListRecipesParams) ([]Lis
 			&i.ImageKey,
 			&i.IsPublic,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSavedRecipes = `-- name: ListSavedRecipes :many
+SELECT r.public_id, r.title, r.author_name, r.image_key,
+       cardinality(r.ingredients)::int AS ingredient_count,
+       cardinality(r.directions)::int AS direction_count,
+       s.created_at AS saved_at
+FROM saved_recipes s
+JOIN recipes r ON r.id = s.recipe_id
+WHERE s.user_sub = $1 AND r.is_public
+ORDER BY lower(r.title), r.id
+`
+
+type ListSavedRecipesRow struct {
+	PublicID        string      `json:"public_id"`
+	Title           string      `json:"title"`
+	AuthorName      pgtype.Text `json:"author_name"`
+	ImageKey        pgtype.Text `json:"image_key"`
+	IngredientCount int32       `json:"ingredient_count"`
+	DirectionCount  int32       `json:"direction_count"`
+	SavedAt         time.Time   `json:"saved_at"`
+}
+
+// The caller's bookmarks of shared recipes, by title. Recipes that are no
+// longer shared drop out (and come back if shared again).
+func (q *Queries) ListSavedRecipes(ctx context.Context, userSub string) ([]ListSavedRecipesRow, error) {
+	rows, err := q.db.Query(ctx, listSavedRecipes, userSub)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSavedRecipesRow{}
+	for rows.Next() {
+		var i ListSavedRecipesRow
+		if err := rows.Scan(
+			&i.PublicID,
+			&i.Title,
+			&i.AuthorName,
+			&i.ImageKey,
+			&i.IngredientCount,
+			&i.DirectionCount,
+			&i.SavedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSharedRecipes = `-- name: ListSharedRecipes :many
+SELECT public_id, title, author_name, image_key,
+       cardinality(ingredients)::int AS ingredient_count,
+       cardinality(directions)::int AS direction_count,
+       (owner_sub = $1::text) AS mine,
+       updated_at
+FROM recipes
+WHERE is_public
+ORDER BY lower(title), id
+LIMIT $3 OFFSET $2
+`
+
+type ListSharedRecipesParams struct {
+	CallerSub  string `json:"caller_sub"`
+	PageOffset int32  `json:"page_offset"`
+	PageLimit  int32  `json:"page_limit"`
+}
+
+type ListSharedRecipesRow struct {
+	PublicID        string      `json:"public_id"`
+	Title           string      `json:"title"`
+	AuthorName      pgtype.Text `json:"author_name"`
+	ImageKey        pgtype.Text `json:"image_key"`
+	IngredientCount int32       `json:"ingredient_count"`
+	DirectionCount  int32       `json:"direction_count"`
+	Mine            bool        `json:"mine"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+// Every shared recipe on the site, the caller's own included, by title.
+// Counts instead of the lists keep the response small.
+func (q *Queries) ListSharedRecipes(ctx context.Context, arg ListSharedRecipesParams) ([]ListSharedRecipesRow, error) {
+	rows, err := q.db.Query(ctx, listSharedRecipes, arg.CallerSub, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSharedRecipesRow{}
+	for rows.Next() {
+		var i ListSharedRecipesRow
+		if err := rows.Scan(
+			&i.PublicID,
+			&i.Title,
+			&i.AuthorName,
+			&i.ImageKey,
+			&i.IngredientCount,
+			&i.DirectionCount,
+			&i.Mine,
 			&i.UpdatedAt,
 		); err != nil {
 			return nil, err

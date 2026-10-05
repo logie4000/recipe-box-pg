@@ -12,6 +12,8 @@ Rails.application.routes.draw do
       resources :recipes, only: %i[create update destroy] do
         resource :image, only: %i[update destroy], controller: "recipe_images"
       end
+      # Same path as the read-api's GET /api/v1/saved-recipes.
+      resources :saved_recipes, path: "saved-recipes", only: %i[create destroy]
     end
   end
 
