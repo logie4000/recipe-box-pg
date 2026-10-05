@@ -3,7 +3,8 @@ import { Component, computed, inject, input, output, signal } from '@angular/cor
 import { Recipe, RecipesApi } from './recipes.api';
 
 /**
- * Private or shared. Shared means anyone with the link can read the recipe
+ * Private or public. Public means it's listed in All Recipes for signed-in
+ * users, and anyone with the link can read the recipe
  * (and see its photo) without signing in; nobody else can change it. The link
  * uses the recipe's random 12-character code and never changes, so turning
  * sharing off and on again revives old links.
@@ -16,7 +17,7 @@ import { Recipe, RecipesApi } from './recipes.api';
         class="switch"
         [title]="
           recipe().is_public
-            ? 'Anyone with the link can view this recipe.'
+            ? 'Anyone signed in can find it in All Recipes, and anyone with the link can view it.'
             : 'Only you can see this recipe.'
         "
       >
@@ -29,7 +30,7 @@ import { Recipe, RecipesApi } from './recipes.api';
           (change)="toggle(toggleBox)"
         />
         <span class="track" aria-hidden="true"><span class="knob"></span></span>
-        <span class="state">{{ recipe().is_public ? 'Shared' : 'Private' }}</span>
+        <span class="state">{{ recipe().is_public ? 'Public' : 'Private' }}</span>
       </label>
       <span class="spacer"></span>
       <ng-content />

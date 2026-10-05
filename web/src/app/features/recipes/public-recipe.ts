@@ -69,7 +69,7 @@ import { SaveButton } from './save-button';
         <app-recipe-body [ingredients]="r.ingredients" [directions]="r.directions" />
       </article>
       <p class="muted footer">
-        Shared from Recipe Box.
+        A public recipe from Recipe Box.
         @if (auth.isAuthenticated()) {
           <a routerLink="/recipes">Go to my recipes</a>
         } @else {

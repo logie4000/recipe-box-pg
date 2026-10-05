@@ -58,7 +58,7 @@ const PAGE_SIZE = 24;
                   {{ recipe.directions.length }}
                   {{ recipe.directions.length === 1 ? 'step' : 'steps' }}
                 </td>
-                <td>{{ recipe.is_public ? 'Shared' : 'Private' }}</td>
+                <td>{{ recipe.is_public ? 'Public' : 'Private' }}</td>
                 <td class="hide-narrow muted">{{ recipe.updated_at | date: 'mediumDate' }}</td>
               </tr>
             }
