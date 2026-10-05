@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { catchError, forkJoin, of } from 'rxjs';
 
+import { AuthService } from '../../core/auth.service';
 import { countsLabel, RecipeCard } from './recipe-card';
 import { RecipesApi, SharedRecipe } from './recipes.api';
 import { SaveButton } from './save-button';
@@ -16,7 +17,7 @@ interface AuthorGroup {
 
 /**
  * /public ("All Recipes"): every recipe anyone has made public, as photo
- * cards, for signed-in users. A switch flips between one grid by title and
+ * cards, for anyone; signed-in users also get bookmarks and "Yours". A switch flips between one grid by title and
  * grids grouped by author, where each author is a twistie that shows or
  * hides their recipes (remembered on this browser). Other people's recipes
  * carry a bookmark on the photo to save them without opening them.
@@ -42,12 +43,21 @@ interface AuthorGroup {
       }
     </header>
 
+    @if (!auth.isAuthenticated()) {
+      <p class="muted">
+        <a href="" (click)="$event.preventDefault(); auth.login()">Sign in</a> to save recipes you
+        like and keep your own.
+      </p>
+    }
+
     @if (error()) {
       <p class="error" role="alert">{{ error() }}</p>
     }
 
     @if (loading()) {
       <p>Loading…</p>
+    } @else if (error()) {
+      <!-- The error above says it all. -->
     } @else if (!recipes().length) {
       <p class="muted">Nobody has made a recipe public yet.</p>
     } @else if (!byAuthor()) {
@@ -95,7 +105,7 @@ interface AuthorGroup {
               [badge]="r.mine ? 'Yours' : ''"
               [details]="details(r, showAuthor)"
             >
-              @if (!r.mine) {
+              @if (!r.mine && auth.isAuthenticated()) {
                 <app-save-button
                   overlay
                   [publicId]="r.public_id"
@@ -122,6 +132,7 @@ interface AuthorGroup {
 })
 export class SharedList implements OnInit {
   protected readonly api = inject(RecipesApi);
+  protected readonly auth = inject(AuthService);
 
   protected readonly recipes = signal<SharedRecipe[]>([]);
   /** Public codes of the recipes the user has saved, for the bookmarks. */
@@ -152,8 +163,11 @@ export class SharedList implements OnInit {
   ngOnInit(): void {
     forkJoin({
       shared: this.api.listShared(),
-      // Bookmarks are a nicety; the list still shows if they can't be loaded.
-      saved: this.api.listSaved().pipe(catchError(() => of({ items: [] }))),
+      // Bookmarks are for signed-in users, and a nicety: the list still shows
+      // if they can't be loaded.
+      saved: this.auth.isAuthenticated()
+        ? this.api.listSaved().pipe(catchError(() => of({ items: [] })))
+        : of({ items: [] }),
     }).subscribe({
       next: ({ shared, saved }) => {
         this.recipes.set(shared.items);

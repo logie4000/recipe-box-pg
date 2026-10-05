@@ -139,6 +139,26 @@ func (v *Verifier) Require(next http.Handler) http.Handler {
 	})
 }
 
+// Optional lets anonymous requests through with no user, and attaches the
+// user when a valid bearer token is sent. A token that is sent but invalid
+// (expired, wrong audience) is still a 401, so the client knows to refresh it
+// rather than silently getting the anonymous view.
+func (v *Verifier) Optional(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, ok := bearerToken(r)
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		user, err := v.Verify(r.Context(), raw)
+		if err != nil {
+			unauthorized(w, "invalid token")
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(WithUser(r.Context(), user)))
+	})
+}
+
 func bearerToken(r *http.Request) (string, bool) {
 	h := r.Header.Get("Authorization")
 	scheme, token, ok := strings.Cut(h, " ")

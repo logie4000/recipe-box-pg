@@ -29,12 +29,13 @@ interface Meta {
     } @else {
       <p>
         Keep your recipes in one place: ingredients, directions and a photo of the finished dish.
-        They're private to you unless you share a link.
+        They're private to you unless you make them public.
       </p>
       <div class="actions">
         <button type="button" (click)="auth.login()">Sign in</button>
         <button type="button" (click)="auth.login('google')">Sign in with Google</button>
       </div>
+      <p><a routerLink="/public">Browse all public recipes</a> without signing in.</p>
     }
 
     <h2>API</h2>

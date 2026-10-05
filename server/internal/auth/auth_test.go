@@ -130,6 +130,38 @@ func TestRequireMiddleware(t *testing.T) {
 	}
 }
 
+func TestOptionalMiddleware(t *testing.T) {
+	idp := newTestIdP(t)
+	h := idp.verifier().Optional(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if u := UserFrom(r.Context()); u != nil {
+			_, _ = w.Write([]byte(u.Subject))
+			return
+		}
+		_, _ = w.Write([]byte("anonymous"))
+	}))
+
+	cases := []struct {
+		name, header string
+		code         int
+		body         string
+	}{
+		{"no token", "", http.StatusOK, "anonymous"},
+		{"valid token", "Bearer " + idp.token(t, nil), http.StatusOK, "user-1"},
+		{"invalid token", "Bearer not-a-jwt", http.StatusUnauthorized, ""},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/shared-recipes", nil)
+		if c.header != "" {
+			req.Header.Set("Authorization", c.header)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != c.code || (c.body != "" && rec.Body.String() != c.body) {
+			t.Fatalf("%s: got %d %q", c.name, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestParseOrganizationsAliasOnly(t *testing.T) {
 	orgs := parseOrganizations(json.RawMessage(`["acme","globex"]`))
 	if len(orgs) != 2 || orgs[0].Alias != "acme" || orgs[0].ID != "" {

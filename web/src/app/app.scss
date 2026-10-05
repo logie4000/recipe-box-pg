@@ -51,19 +51,29 @@
   align-self: start;
   background: var(--menu);
 
-  a {
+  a,
+  .disabled {
     padding: 5px 15px;
     border-top: 1px solid #fff;
     border-left: 1px solid #fff;
     font-family: var(--font-type);
     font-size: 1.5rem;
     white-space: nowrap;
+  }
+
+  a {
     color: #fff;
     text-decoration: none;
   }
 
   a:hover {
     background: #ccc;
+  }
+
+  // Signed out: visible, greyed, not clickable; the tooltip says why.
+  .disabled {
+    color: rgb(255 255 255 / 55%);
+    cursor: not-allowed;
   }
 
   a.active {
@@ -93,7 +103,8 @@ main {
     flex-direction: row;
     overflow-x: auto;
 
-    a {
+    a,
+    .disabled {
       font-size: 1.25rem;
       border-left: none;
       border-right: 1px solid #fff;

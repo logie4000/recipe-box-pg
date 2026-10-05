@@ -43,6 +43,8 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/meta", s.meta)
 	mux.HandleFunc("GET /api/v1/public/recipes/{public_id}", s.getPublicRecipe)
 	mux.HandleFunc("GET /api/v1/public/recipes/{public_id}/image", s.getPublicRecipeImage)
+	// Signed in or not: anonymous visitors see the same list, minus "mine".
+	mux.Handle("GET /api/v1/shared-recipes", s.Verifier.Optional(http.HandlerFunc(s.listSharedRecipes)))
 
 	// Authenticated (+ tenant when TENANT_MODE=on)
 	protected := func(h http.HandlerFunc) http.Handler {
@@ -55,7 +57,6 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/recipes", protected(s.listRecipes))
 	mux.Handle("GET /api/v1/recipes/{id}", protected(s.getRecipe))
 	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
-	mux.Handle("GET /api/v1/shared-recipes", protected(s.listSharedRecipes))
 	mux.Handle("GET /api/v1/saved-recipes", protected(s.listSavedRecipes))
 	mux.Handle("GET /api/v1/saved-recipes/{public_id}", protected(s.getSavedStatus))
 
@@ -201,10 +202,10 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, recipe)
 }
 
-// listSharedRecipes is every shared recipe on the site, for signed-in users
-// browsing what others have shared. RLS lets public rows through
-// (recipes_public_read) and the query asks only for those. Owners are not
-// exposed, just author_name and whether the recipe is the caller's own.
+// listSharedRecipes is every public recipe on the site, for anyone, signed in
+// or not. RLS lets public rows through (recipes_public_read) and the query
+// asks only for those. Owners are not exposed, just author_name and, for a
+// signed-in caller, whether the recipe is their own.
 func (s *Server) listSharedRecipes(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 500, 1, 1000)
 	offset := queryInt(r, "offset", 0, 0, 1_000_000)
@@ -212,10 +213,14 @@ func (s *Server) listSharedRecipes(w http.ResponseWriter, r *http.Request) {
 		items []sqlc.ListSharedRecipesRow
 		total int64
 	)
+	caller := ""
+	if u := auth.UserFrom(r.Context()); u != nil {
+		caller = u.Subject
+	}
 	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		items, err = q.ListSharedRecipes(r.Context(), sqlc.ListSharedRecipesParams{
-			CallerSub:  auth.UserFrom(r.Context()).Subject,
+			CallerSub:  caller,
 			PageLimit:  int32(limit),
 			PageOffset: int32(offset),
 		})

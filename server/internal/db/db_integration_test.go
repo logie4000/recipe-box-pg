@@ -275,8 +275,8 @@ func testRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 }
 
 func testSavedRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
-	t.Run("shared list: only shared recipes, marked mine for their owner", func(t *testing.T) {
-		for user, wantMine := range map[string]bool{"alice": true, "bob": false} {
+	t.Run("shared list: only shared recipes, marked mine for their owner, also anonymously", func(t *testing.T) {
+		for user, wantMine := range map[string]bool{"alice": true, "bob": false, "": false} {
 			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
 				rows, err := q.ListSharedRecipes(ctx, sqlc.ListSharedRecipesParams{CallerSub: user, PageLimit: 10})
 				if err != nil {

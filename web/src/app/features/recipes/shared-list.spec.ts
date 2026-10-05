@@ -1,8 +1,10 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
+import { AuthService } from '../../core/auth.service';
 import { SharedList } from './shared-list';
 
 const shared = (code: string, title: string, author: string | null, mine = false) => ({
@@ -18,8 +20,10 @@ const shared = (code: string, title: string, author: string | null, mine = false
 
 describe('SharedList', () => {
   let backend: HttpTestingController;
+  const authenticated = signal(true);
 
   beforeEach(() => {
+    authenticated.set(true);
     try {
       localStorage.removeItem('recipe-box.shared-view');
     } catch {
@@ -27,7 +31,12 @@ describe('SharedList', () => {
     }
     TestBed.configureTestingModule({
       imports: [SharedList],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: AuthService, useValue: { isAuthenticated: authenticated, login: vi.fn() } },
+      ],
     });
     backend = TestBed.inject(HttpTestingController);
   });
@@ -50,7 +59,9 @@ describe('SharedList', () => {
         limit: 1000,
         offset: 0,
       });
-    backend.expectOne('/api/v1/saved-recipes').flush({ items: [shared('t', 'Toast', 'Bob B')] });
+    if (authenticated()) {
+      backend.expectOne('/api/v1/saved-recipes').flush({ items: [shared('t', 'Toast', 'Bob B')] });
+    }
     await fixture.whenStable();
     return fixture;
   }
@@ -105,5 +116,13 @@ describe('SharedList', () => {
     el.querySelectorAll<HTMLButtonElement>('.twistie-title')[1].click();
     await fixture.whenStable();
     expect(cards(el).length).toBe(0);
+  });
+
+  it('works signed out: same cards, no bookmarks, and a nudge to sign in', async () => {
+    authenticated.set(false);
+    const el = (await load()).nativeElement as HTMLElement;
+    expect(cards(el).length).toBe(4);
+    expect(el.querySelector('app-save-button')).toBeNull();
+    expect(el.textContent?.replace(/\s+/g, ' ')).toContain('Sign in to save recipes you like');
   });
 });

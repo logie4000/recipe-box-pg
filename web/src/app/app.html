@@ -14,11 +14,34 @@
 <div class="content">
   <nav class="side-nav">
     <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+    <a routerLink="/public" routerLinkActive="active">All Recipes</a>
     @if (auth.isAuthenticated()) {
-      <a routerLink="/public" routerLinkActive="active">All Recipes</a>
       <a routerLink="/recipes" routerLinkActive="active">My Recipes</a>
       <a routerLink="/saved" routerLinkActive="active">Saved</a>
       <a routerLink="/notes" routerLinkActive="active">Notes</a>
+    } @else {
+      <!-- Shown but inert until sign-in, so visitors can see what an account adds. -->
+      <span
+        class="disabled"
+        aria-disabled="true"
+        tabindex="0"
+        title="Sign in to keep your own recipes"
+        >My Recipes</span
+      >
+      <span
+        class="disabled"
+        aria-disabled="true"
+        tabindex="0"
+        title="Sign in to save recipes you like"
+        >Saved</span
+      >
+      <span
+        class="disabled"
+        aria-disabled="true"
+        tabindex="0"
+        title="Sign in to see and write notes"
+        >Notes</span
+      >
     }
   </nav>
 
