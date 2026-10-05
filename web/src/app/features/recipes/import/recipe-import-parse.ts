@@ -278,7 +278,8 @@ function finish(source: ParseResult['source'], parsed: ImportedRecipe[]): ParseR
   return { source, recipes, skipped: parsed.length - recipes.length };
 }
 
-function clip(r: ImportedRecipe): ImportedRecipe {
+/** Trim and clip a recipe to the write-api's limits (also used after edits in the preview). */
+export function clip(r: ImportedRecipe): ImportedRecipe {
   const list = (items: string[]) =>
     items
       .map((s) => s.replace(/\s+/g, ' ').trim())
