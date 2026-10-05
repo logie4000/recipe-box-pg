@@ -10,6 +10,7 @@ import { RECIPE_BOX_FORMAT } from './recipe-import-parse';
  */
 @Injectable({ providedIn: 'root' })
 export class RecipeExport {
+  /** One recipe is named after its title (pancakes.json); several after the date. */
   download(recipes: Pick<Recipe, 'title' | 'ingredients' | 'directions' | 'notes'>[]): void {
     const file = {
       format: RECIPE_BOX_FORMAT,
@@ -26,7 +27,15 @@ export class RecipeExport {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `recipe-box-${new Date().toISOString().slice(0, 10)}.json`;
+    const slug =
+      recipes.length === 1
+        ? recipes[0].title
+            .toLowerCase()
+            .replace(/[^\p{L}\p{N}]+/gu, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60)
+        : '';
+    a.download = `${slug || `recipe-box-${new Date().toISOString().slice(0, 10)}`}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
