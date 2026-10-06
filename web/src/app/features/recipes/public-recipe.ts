@@ -1,8 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
 import { AuthService } from '../../core/auth.service';
+import { pageTitle } from '../../core/page-title';
 import { RecipeExport } from './import/recipe-export';
 import { RecipeBody } from './recipe-body';
 import { PublicRecipe, RecipesApi, SavedStatus } from './recipes.api';
@@ -156,6 +158,7 @@ export class PublicRecipePage implements OnInit {
   protected readonly api = inject(RecipesApi);
   protected readonly auth = inject(AuthService);
   protected readonly exporter = inject(RecipeExport);
+  private readonly title = inject(Title);
 
   protected readonly recipe = signal<PublicRecipe | null>(null);
   protected readonly missing = signal(false);
@@ -167,6 +170,7 @@ export class PublicRecipePage implements OnInit {
     this.api.getPublic(this.code()).subscribe({
       next: (r) => {
         this.recipe.set(r);
+        this.title.setTitle(pageTitle(r.title));
         // Signed-in readers get a Save button (unless it's their own recipe).
         if (this.auth.isMember()) {
           this.api.savedStatus(r.public_id).subscribe({
@@ -178,6 +182,7 @@ export class PublicRecipePage implements OnInit {
       error: (err: HttpErrorResponse) => {
         if (err.status === 404) {
           this.missing.set(true);
+          this.title.setTitle(pageTitle('Recipe not available'));
         } else {
           this.error.set('Could not load this recipe.');
         }
