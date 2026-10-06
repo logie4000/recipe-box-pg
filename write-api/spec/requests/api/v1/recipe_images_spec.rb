@@ -9,9 +9,10 @@ RSpec.describe "/api/v1/recipes/:recipe_id/image" do
   let(:store) { ImageStore::LocalDisk.new(dir) }
   let!(:recipe) { DbContext.with(user_id: "alice-sub") { Recipe.create!(owner_sub: "alice-sub", title: "Pancakes") } }
 
-  JPEG = "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00".b + ("\x00".b * 64)
-  PNG = "\x89PNG\r\n\x1A\n".b + ("\x00".b * 64)
-  WEBP = "RIFF\x24\x00\x00\x00WEBPVP8 ".b + ("\x00".b * 64)
+  # Real 40x30 images with EXIF; spec/models/recipe_image_spec.rb covers the checks.
+  JPEG = File.binread(Rails.root.join("spec/fixtures/files/images/photo.jpg"))
+  PNG = File.binread(Rails.root.join("spec/fixtures/files/images/photo.png"))
+  WEBP = File.binread(Rails.root.join("spec/fixtures/files/images/photo.webp"))
 
   before { ImageStore.current = store }
 
@@ -29,7 +30,7 @@ RSpec.describe "/api/v1/recipes/:recipe_id/image" do
 
   def stored_files = Dir.glob("#{dir}/**/*").select { |f| File.file?(f) }
 
-  it "stores a JPEG, PNG or WebP under a fresh random key and returns the recipe" do
+  it "stores a JPEG, PNG or WebP, without its metadata, under a fresh random key and returns the recipe" do
     { JPEG => "jpg", PNG => "png", WEBP => "webp" }.each do |bytes, ext|
       put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(bytes)
 
@@ -37,9 +38,61 @@ RSpec.describe "/api/v1/recipes/:recipe_id/image" do
       key = response.parsed_body["recipe"]["image_key"]
       expect(key).to match(%r{\Arecipes/[A-Za-z0-9]{24}\.#{ext}\z})
       expect(image_key).to eq(key)
-      expect(File.binread(File.join(dir, key))).to eq(bytes)
+      stored = File.binread(File.join(dir, key))
+      expect(stored).to eq(RecipeImage.clean(bytes).bytes)
+      expect(stored).not_to include("SecretCam")
     end
     expect(stored_files.size).to eq(1)
+  end
+
+  it "refuses a damaged or oversized image and stores nothing" do
+    put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(JPEG.byteslice(0, 300))
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(response.parsed_body["errors"]["image"]).to eq([ "The image file is damaged." ])
+
+    stub_const("RecipeImage::MAX_SIDE", 39)
+    put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(PNG)
+    expect(response.parsed_body["errors"]["image"].first).to include("too big (40 × 30 pixels)")
+
+    expect(stored_files).to be_empty
+    expect(image_key).to be_nil
+  end
+
+  describe "photo storage per user" do
+    def image_bytes = DbContext.with(user_id: "alice-sub") { recipe.reload.image_bytes }
+
+    let!(:other) { DbContext.with(user_id: "alice-sub") { Recipe.create!(owner_sub: "alice-sub", title: "Waffles") } }
+    let(:jpeg_size) { RecipeImage.clean(JPEG).bytes.bytesize }
+
+    it "records each photo's size, and clears it when the photo goes" do
+      put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(JPEG)
+      expect(image_bytes).to eq(jpeg_size)
+
+      delete "/api/v1/recipes/#{recipe.id}/image", headers: alice
+      expect(image_bytes).to be_nil
+    end
+
+    it "refuses a photo that would take the user over the limit, not counting the one it replaces" do
+      allow(Rails.configuration.x).to receive(:photo_storage_per_user).and_return(jpeg_size * 2)
+      put "/api/v1/recipes/#{other.id}/image", headers: alice, params: upload(JPEG)
+      put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(JPEG)
+      expect(response).to have_http_status(:ok)
+
+      # Replacing a photo frees its old size first.
+      put "/api/v1/recipes/#{recipe.id}/image", headers: alice, params: upload(JPEG)
+      expect(response).to have_http_status(:ok)
+
+      third = DbContext.with(user_id: "alice-sub") { Recipe.create!(owner_sub: "alice-sub", title: "Crepes") }
+      put "/api/v1/recipes/#{third.id}/image", headers: alice, params: upload(JPEG)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["errors"]["image"].first).to include("Remove some photos")
+      expect(stored_files.size).to eq(2)
+
+      # Other users have their own allowance.
+      bobs = DbContext.with(user_id: "bob-sub") { Recipe.create!(owner_sub: "bob-sub", title: "Toast") }
+      put "/api/v1/recipes/#{bobs.id}/image", headers: bob, params: upload(JPEG)
+      expect(response).to have_http_status(:ok)
+    end
   end
 
   it "goes by the bytes, not the file name or Content-Type" do

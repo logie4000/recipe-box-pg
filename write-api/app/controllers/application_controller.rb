@@ -34,6 +34,15 @@ class ApplicationController < ActionController::API
         status: :too_many_requests
     end
 
+    # Serializes the caller's requests that check a per-user limit (recipe
+    # count, photo storage) until the request's transaction ends, so two at
+    # once can't both squeeze under it.
+    def lock_current_user!
+      ActiveRecord::Base.connection.select_value(
+        ActiveRecord::Base.sanitize_sql_array([ "SELECT pg_advisory_xact_lock(hashtext(?))", "user:#{current_user_sub}" ])
+      )
+    end
+
     def render_errors(record)
       render json: { error: "invalid", errors: record.errors.to_hash(true) }, status: :unprocessable_content
     end

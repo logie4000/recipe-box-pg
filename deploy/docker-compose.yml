@@ -93,6 +93,8 @@ services:
       RAILS_MAX_THREADS: ${RAILS_MAX_THREADS:-5}
       RATE_LIMIT_WRITES_PER_MINUTE: ${RATE_LIMIT_WRITES_PER_MINUTE:-120}
       RATE_LIMIT_UPLOADS_PER_MINUTE: ${RATE_LIMIT_UPLOADS_PER_MINUTE:-20}
+      PHOTO_STORAGE_MB_PER_USER: ${PHOTO_STORAGE_MB_PER_USER:-250}
+      MAX_RECIPES_PER_USER: ${MAX_RECIPES_PER_USER:-2000}
       IMAGE_STORAGE_DIR: /srv/images
     volumes:
       # Recipe photos. The write-api stores them, the read-api serves them.

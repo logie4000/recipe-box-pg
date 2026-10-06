@@ -108,7 +108,8 @@ CREATE TABLE public.recipes (
     created_at timestamp(6) without time zone NOT NULL,
     updated_at timestamp(6) without time zone NOT NULL,
     notes text DEFAULT ''::text NOT NULL,
-    author_name character varying
+    author_name character varying,
+    image_bytes integer
 );
 
 ALTER TABLE ONLY public.recipes FORCE ROW LEVEL SECURITY;
@@ -1280,6 +1281,7 @@ CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::te
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261006150000'),
 ('20261005150000'),
 ('20261004180000'),
 ('20261003150000'),
