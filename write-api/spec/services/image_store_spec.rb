@@ -47,6 +47,11 @@ RSpec.describe ImageStore do
       expect(client.api_requests).to be_empty
     end
 
+    it "adds the slash after a prefix that lacks one" do
+      expect(described_class.new(bucket: "photos", prefix: "/app", client:).prefix).to eq("app/")
+      expect(described_class.new(bucket: "photos", prefix: "", client:).prefix).to eq("")
+    end
+
     it "needs a bucket" do
       expect { described_class.new(bucket: "", client:) }.to raise_error(ArgumentError, /IMAGE_S3_BUCKET/)
     end

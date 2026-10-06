@@ -15,7 +15,8 @@ module ImageStore
       raise ArgumentError, "IMAGE_STORAGE=s3 needs IMAGE_S3_BUCKET" if bucket.blank?
 
       @bucket = bucket
-      @prefix = prefix.to_s
+      # "recipe-box" and "/recipe-box/" both mean "recipe-box/", as in the read-api.
+      @prefix = prefix.to_s.delete_prefix("/").delete_suffix("/").then { it.empty? ? "" : "#{it}/" }
       @client = client || Aws::S3::Client.new(
         { region: region.presence, endpoint: endpoint.presence, force_path_style: endpoint.present? || nil }.compact
       )

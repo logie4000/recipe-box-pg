@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -38,7 +39,17 @@ func NewS3(ctx context.Context, o Options) (*S3, error) {
 			so.UsePathStyle = true
 		}
 	})
-	return &S3{Client: client, Bucket: o.Bucket, Prefix: o.Prefix}, nil
+	return &S3{Client: client, Bucket: o.Bucket, Prefix: normalizePrefix(o.Prefix)}, nil
+}
+
+// normalizePrefix makes "recipe-box" and "/recipe-box/" both "recipe-box/",
+// the same as ImageStore::S3 in the write-api.
+func normalizePrefix(p string) string {
+	p = strings.Trim(p, "/")
+	if p == "" {
+		return ""
+	}
+	return p + "/"
 }
 
 func (b *S3) Open(ctx context.Context, key string) (*Object, error) {
