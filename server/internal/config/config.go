@@ -26,6 +26,7 @@ type Config struct {
 	MinClientVersion   string
 	AppVersion         string
 	LogFormat          string // "json" (default) or "text"
+	AdminRole          string // realm role that may approve sign-ups
 	ImageStorage       string // "local" (default)
 	ImageStorageDir    string
 	// Per client IP, per minute; 0 turns a limit off. See httpx.RateLimit.
@@ -51,6 +52,7 @@ func Load() (Config, error) {
 		MinClientVersion:   env("MIN_SUPPORTED_CLIENT_VERSION", "0.0.0"),
 		AppVersion:         env("APP_VERSION", "dev"),
 		LogFormat:          env("LOG_FORMAT", "json"),
+		AdminRole:          env("ADMIN_ROLE", "admin"),
 		ImageStorage:       env("IMAGE_STORAGE", "local"),
 		// Same directory the write-api stores photos in. `make api` runs from
 		// server/, so the dev default is <repo>/storage/images.

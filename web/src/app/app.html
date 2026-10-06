@@ -15,10 +15,23 @@
   <nav class="side-nav">
     <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
     <a routerLink="/public" routerLinkActive="active">All Recipes</a>
-    @if (auth.isAuthenticated()) {
+    @if (auth.isMember()) {
       <a routerLink="/recipes" routerLinkActive="active">My Recipes</a>
       <a routerLink="/saved" routerLinkActive="active">Saved</a>
       <a routerLink="/notes" routerLinkActive="active">Notes</a>
+      @if (auth.isAdmin()) {
+        <a routerLink="/approvals" routerLinkActive="active">Approvals</a>
+      }
+    } @else if (auth.isPending()) {
+      <span class="disabled" aria-disabled="true" tabindex="0" title="Waiting for approval"
+        >My Recipes</span
+      >
+      <span class="disabled" aria-disabled="true" tabindex="0" title="Waiting for approval"
+        >Saved</span
+      >
+      <span class="disabled" aria-disabled="true" tabindex="0" title="Waiting for approval"
+        >Notes</span
+      >
     } @else {
       <!-- Shown but inert until sign-in, so visitors can see what an account adds. -->
       <span

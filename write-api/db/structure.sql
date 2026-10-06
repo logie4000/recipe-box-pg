@@ -14,6 +14,41 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: account_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.account_requests (
+    id bigint NOT NULL,
+    user_sub character varying NOT NULL,
+    email character varying,
+    name character varying,
+    created_at timestamp(6) without time zone NOT NULL,
+    updated_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.account_requests FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: account_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.account_requests_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: account_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.account_requests_id_seq OWNED BY public.account_requests.id;
+
+
+--
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -620,6 +655,13 @@ ALTER SEQUENCE public.solid_queue_semaphores_id_seq OWNED BY public.solid_queue_
 
 
 --
+-- Name: account_requests id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_requests ALTER COLUMN id SET DEFAULT nextval('public.account_requests_id_seq'::regclass);
+
+
+--
 -- Name: notes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -736,6 +778,14 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions ALTER COLUMN id SET DEF
 --
 
 ALTER TABLE ONLY public.solid_queue_semaphores ALTER COLUMN id SET DEFAULT nextval('public.solid_queue_semaphores_id_seq'::regclass);
+
+
+--
+-- Name: account_requests account_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.account_requests
+    ADD CONSTRAINT account_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -888,6 +938,13 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 
 ALTER TABLE ONLY public.solid_queue_semaphores
     ADD CONSTRAINT solid_queue_semaphores_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: index_account_requests_on_user_sub; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_account_requests_on_user_sub ON public.account_requests USING btree (user_sub);
 
 
 --
@@ -1229,6 +1286,26 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 
 
 --
+-- Name: account_requests; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.account_requests ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_requests account_requests_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY account_requests_admin ON public.account_requests USING ((current_setting('app.is_admin'::text, true) = 'on'::text));
+
+
+--
+-- Name: account_requests account_requests_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY account_requests_own ON public.account_requests USING (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text))) WITH CHECK (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text)));
+
+
+--
 -- Name: private_notes; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1281,6 +1358,7 @@ CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::te
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261006170000'),
 ('20261006150000'),
 ('20261005150000'),
 ('20261004180000'),

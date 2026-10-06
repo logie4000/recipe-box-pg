@@ -73,6 +73,7 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"UPDATE recipes SET author_name = 'Alice A' WHERE owner_sub = 'alice'",
 		// Bob saved Soup (shared) and Pancakes (since made private); Carol saved Soup.
 		"INSERT INTO saved_recipes (user_sub, recipe_id, created_at) VALUES ('bob', 2, now()), ('bob', 1, now()), ('carol', 2, now())",
+		"INSERT INTO account_requests (user_sub, email, name, created_at, updated_at) VALUES ('dave', 'dave@example.test', 'Dave', now(), now()), ('erin', NULL, 'Erin', now(), now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
 			t.Fatalf("setup %q: %v", firstLine(stmt), err)
@@ -322,6 +323,33 @@ func testSavedRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 		})
 		if err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	t.Run("account requests: all for admins, only their own for others", func(t *testing.T) {
+		cases := []struct {
+			rc   RequestContext
+			want int
+		}{
+			{RequestContext{UserID: "admin", IsAdmin: true}, 2},
+			{RequestContext{UserID: "dave"}, 1},
+			{RequestContext{UserID: "alice"}, 0},
+			{RequestContext{}, 0},
+		}
+		for _, c := range cases {
+			err := ReadTx(ctx, pool, c.rc, func(q *sqlc.Queries) error {
+				items, err := q.ListAccountRequests(ctx)
+				if err != nil {
+					return err
+				}
+				if len(items) != c.want {
+					return fmt.Errorf("%+v sees %d requests, want %d", c.rc, len(items), c.want)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 

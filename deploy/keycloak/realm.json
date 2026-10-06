@@ -3,7 +3,7 @@
   "displayName": "App",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
@@ -89,7 +89,7 @@
       "standardFlowEnabled": true,
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
-      "serviceAccountsEnabled": false,
+      "serviceAccountsEnabled": true,
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "redirectUris": [
@@ -123,6 +123,12 @@
     }
   ],
   "users": [
+    {
+      "username": "service-account-rails-admin",
+      "enabled": true,
+      "serviceAccountClientId": "rails-admin",
+      "clientRoles": { "realm-management": ["view-users", "manage-users"] }
+    },
     {
       "username": "alice",
       "email": "alice@example.test",

@@ -52,7 +52,7 @@ func TestMetaIsPublic(t *testing.T) {
 }
 
 func TestProtectedRoutesNeedToken(t *testing.T) {
-	for _, path := range []string{"/api/v1/me", "/api/v1/notes", "/api/v1/notes/1", "/api/v1/private-notes", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image"} {
+	for _, path := range []string{"/api/v1/me", "/api/v1/notes", "/api/v1/notes/1", "/api/v1/private-notes", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image", "/api/v1/account-requests"} {
 		rec := httptest.NewRecorder()
 		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		if rec.Code != http.StatusUnauthorized {
