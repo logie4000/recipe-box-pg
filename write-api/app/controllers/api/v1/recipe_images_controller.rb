@@ -9,6 +9,9 @@ module Api
     # GET /api/v1/public/recipes/:public_id/image while the recipe is public.
     # Same owner scoping as RecipesController, so another user's recipe is a 404.
     class RecipeImagesController < ApplicationController
+      rate_limit to: Rails.configuration.x.rate_limit_uploads_per_minute, within: 1.minute, only: :update,
+        name: "uploads", by: -> { current_user_sub }, with: :render_rate_limited, store: RATE_LIMIT_STORE
+
       def update
         recipe = find_recipe
         upload = params.require(:image)

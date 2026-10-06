@@ -8,6 +8,13 @@ class ApplicationController < ActionController::API
 
   after_action :verify_authorized
 
+  # Writes per signed-in user, across every API controller. Counted after
+  # authentication, so a missing or bad token is still a plain 401. Memory
+  # is per Puma process; one process in production (WEB_CONCURRENCY unset).
+  RATE_LIMIT_STORE = ActiveSupport::Cache::MemoryStore.new
+  rate_limit to: Rails.configuration.x.rate_limit_writes_per_minute, within: 1.minute,
+    scope: "api-writes", by: -> { current_user_sub }, with: :render_rate_limited, store: RATE_LIMIT_STORE
+
   rescue_from Pundit::NotAuthorizedError do
     render json: { error: "forbidden" }, status: :forbidden
   end
@@ -21,6 +28,12 @@ class ApplicationController < ActionController::API
   end
 
   private
+    def render_rate_limited
+      response.headers["Retry-After"] = "60"
+      render json: { error: "rate_limited", message: "Too many changes at once. Try again in a minute." },
+        status: :too_many_requests
+    end
+
     def render_errors(record)
       render json: { error: "invalid", errors: record.errors.to_hash(true) }, status: :unprocessable_content
     end

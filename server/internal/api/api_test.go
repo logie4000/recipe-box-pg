@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/logie4000/webapp-template/server/internal/auth"
+	"github.com/logie4000/webapp-template/server/internal/httpx"
 	"github.com/logie4000/webapp-template/server/internal/storage"
 )
 
@@ -140,5 +141,31 @@ func TestServeImage(t *testing.T) {
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("serveImage(%v) = %d, want 404", k, rec.Code)
 		}
+	}
+}
+
+// A 429 from the limiter still carries CORS headers, so the browser app can
+// read it and show a message instead of a generic network error.
+func TestRateLimitedResponseKeepsCORS(t *testing.T) {
+	s := &Server{
+		Verifier:       auth.NewVerifier(context.Background(), "http://issuer.test/realms/app", "app-api", "http://127.0.0.1:1/certs"),
+		Log:            slog.New(slog.NewTextHandler(io.Discard, nil)),
+		CORSOrigins:    []string{"http://localhost:4200"},
+		AnonymousLimit: httpx.NewRateLimiter(60, 1),
+		SignedInLimit:  httpx.NewRateLimiter(60, 1),
+	}
+	h := s.Routes()
+	var rec *httptest.ResponseRecorder
+	for range 2 {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/meta", nil)
+		req.Header.Set("Origin", "http://localhost:4200")
+		rec = httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+	}
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("second request = %d, want 429", rec.Code)
+	}
+	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:4200" {
+		t.Fatalf("429 Access-Control-Allow-Origin = %q", got)
 	}
 }

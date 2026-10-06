@@ -19,4 +19,6 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
   config.include FactoryBot::Syntax::Methods
   config.include AuthHelpers
+
+  config.before { ApplicationController::RATE_LIMIT_STORE.clear }
 end

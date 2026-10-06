@@ -28,6 +28,11 @@ type Config struct {
 	LogFormat          string // "json" (default) or "text"
 	ImageStorage       string // "local" (default)
 	ImageStorageDir    string
+	// Per client IP, per minute; 0 turns a limit off. See httpx.RateLimit.
+	RateLimitAnonymous      int
+	RateLimitAnonymousBurst int
+	RateLimitSignedIn       int
+	RateLimitSignedInBurst  int
 }
 
 func Load() (Config, error) {
@@ -57,6 +62,22 @@ func Load() (Config, error) {
 		return c, fmt.Errorf("READ_API_DB_MAX_CONNS: %w", err)
 	}
 	c.DBMaxConns = int32(maxConns)
+
+	// A page of 12 recipe cards is 13 requests, so the bursts cover a few
+	// quick page turns; the steady rates stop scraping and floods.
+	for _, l := range []struct {
+		key, fallback string
+		dst           *int
+	}{
+		{"RATE_LIMIT_ANON_PER_MINUTE", "120", &c.RateLimitAnonymous},
+		{"RATE_LIMIT_ANON_BURST", "60", &c.RateLimitAnonymousBurst},
+		{"RATE_LIMIT_USER_PER_MINUTE", "600", &c.RateLimitSignedIn},
+		{"RATE_LIMIT_USER_BURST", "200", &c.RateLimitSignedInBurst},
+	} {
+		if *l.dst, err = strconv.Atoi(env(l.key, l.fallback)); err != nil {
+			return c, fmt.Errorf("%s: %w", l.key, err)
+		}
+	}
 
 	if c.DatabaseURL == "" {
 		u := url.URL{

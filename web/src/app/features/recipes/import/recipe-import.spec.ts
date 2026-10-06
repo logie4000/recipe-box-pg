@@ -74,6 +74,33 @@ describe('RecipeImport', () => {
     expect(el.querySelector('a[href="/recipes/5"]')?.textContent).toContain('Saved');
   });
 
+  it('waits out a 429 and retries, instead of failing the rest of the import', async () => {
+    const { fixture, el } = await paste('Soup\nIngredients\nOnion');
+    const waits: number[] = [];
+    (fixture.componentInstance as unknown as { sleep: (ms: number) => Promise<void> }).sleep = (
+      ms,
+    ) => {
+      waits.push(ms);
+      return Promise.resolve();
+    };
+
+    button(el, 'Import 1 recipe').click();
+    backend
+      .expectOne('/api/v1/recipes')
+      .flush(
+        { error: 'rate_limited' },
+        { status: 429, statusText: 'Too Many Requests', headers: { 'Retry-After': '7' } },
+      );
+    await fixture.whenStable();
+    backend.expectOne('/api/v1/recipes').flush({ id: 9, recipe: {} });
+    // Let the save loop's promise chain finish.
+    await new Promise((resolve) => setTimeout(resolve));
+    await fixture.whenStable();
+
+    expect(waits).toEqual([7000]);
+    expect(el.textContent).toContain('Imported 1 of 1');
+  });
+
   it('opens a single recipe on its preview, and saves what was edited', async () => {
     const { fixture, el } = await paste('Soup\nIngredients\nOnion\nDirections\nChop');
 

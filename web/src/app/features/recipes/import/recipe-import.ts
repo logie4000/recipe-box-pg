@@ -3,13 +3,16 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 
-import { Recipe, RecipesApi } from '../recipes.api';
+import { Recipe, RecipeInput, RecipesApi } from '../recipes.api';
 import { DuplicateKind, findDuplicates } from './duplicates';
 import { ImportRecipeEditor } from './import-recipe-editor';
 import { clip, ImportedRecipe, ImportError, parseImport, ParseResult } from './recipe-import-parse';
 
 /** Bigger than any sensible recipe file; keeps a stray video out of the parser. */
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+/** Times one recipe is retried after a 429 before it is marked "Not saved". */
+const MAX_RETRIES = 3;
 
 interface Row {
   /** Stable across edits, for tracking and for which sections are open. */
@@ -168,7 +171,9 @@ interface Row {
             (click)="save()"
             [disabled]="busy() || !selectedCount() || untitledSelected()"
           >
-            @if (busy()) {
+            @if (paused()) {
+              Too many at once, waiting a moment…
+            } @else if (busy()) {
               Saving {{ progress() }} of {{ selectedCount() }}…
             } @else {
               Import {{ selectedCount() }} {{ selectedCount() === 1 ? 'recipe' : 'recipes' }}
@@ -280,6 +285,8 @@ export class RecipeImport {
   protected readonly busy = signal(false);
   protected readonly done = signal(false);
   protected readonly progress = signal(0);
+  /** The write-api's per-user limit was hit; saving resumes after Retry-After. */
+  protected readonly paused = signal(false);
   protected readonly checking = signal(false);
   protected readonly checkFailed = signal(false);
   /** Keys of the expanded sections. */
@@ -449,9 +456,7 @@ export class RecipeImport {
       try {
         // Author and ID only describe the source; the new recipe is the importer's.
         const { title, ingredients, directions, notes } = clip(rows[i].recipe);
-        const { id } = await firstValueFrom(
-          this.api.create({ title, ingredients, directions, notes }),
-        );
+        const { id } = await this.createWithRetry({ title, ingredients, directions, notes });
         patch = { savedId: id };
       } catch (err) {
         patch = { error: describe(err) };
@@ -461,6 +466,29 @@ export class RecipeImport {
     this.busy.set(false);
     this.done.set(true);
   }
+
+  /**
+   * A big import can outrun the per-user write limit (429). Wait as long as
+   * Retry-After says and try again, a few times, rather than failing the rest.
+   */
+  private async createWithRetry(recipe: RecipeInput) {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await firstValueFrom(this.api.create(recipe));
+      } catch (err) {
+        if (!(err instanceof HttpErrorResponse && err.status === 429) || attempt > MAX_RETRIES) {
+          throw err;
+        }
+        const seconds = Number(err.headers.get('Retry-After')) || 10;
+        this.paused.set(true);
+        await this.sleep(Math.min(seconds, 60) * 1000);
+        this.paused.set(false);
+      }
+    }
+  }
+
+  /** Replaced in tests. */
+  protected sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   protected reset(): void {
     this.rows.set([]);
@@ -474,6 +502,9 @@ export class RecipeImport {
 }
 
 function describe(err: unknown): string {
+  if (err instanceof HttpErrorResponse && err.status === 429) {
+    return 'Not saved: too many at once. Try again in a minute.';
+  }
   if (err instanceof HttpErrorResponse && err.status === 422) {
     const errors = (err.error?.errors ?? {}) as Record<string, string[]>;
     // Full messages, e.g. "Title can't be blank".
