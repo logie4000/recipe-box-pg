@@ -4,6 +4,7 @@
 #
 #   deploy/keycloak/configure.sh google-autolink   # First broker login links by verified email
 #   deploy/keycloak/configure.sh org-ids           # organization claim carries org ids (TENANT_MODE)
+#   deploy/keycloak/configure.sh signup            # self sign-up, approved in the app (realms imported before it)
 #
 # Uses kcadm.sh inside the running keycloak container.
 set -euo pipefail
@@ -47,9 +48,26 @@ org_ids() {
   echo "organization claim now includes ids: {\"acme\": {\"id\": \"...\"}}"
 }
 
+# Sign-up with approval (also in realm.json, for new installs). Anyone can
+# register; new accounts get no app role, so they can browse but not write
+# until an admin approves them on the app's Approvals page, which grants
+# "reader" through the rails-admin client's service account.
+signup() {
+  kcadm update realms/app -s registrationAllowed=true
+  local client
+  client=$(kcadm get clients -r app -q clientId=rails-admin --fields id --format csv --noquotes)
+  [ -n "$client" ] || { echo "no rails-admin client in realm app" >&2; exit 1; }
+  kcadm update "clients/$client" -r app -s serviceAccountsEnabled=true
+  kcadm add-roles -r app --uusername service-account-rails-admin --cclientid realm-management     --rolename view-users --rolename manage-users
+  # New accounts must not be approved automatically.
+  kcadm remove-roles -r app --rname default-roles-app --rolename reader --rolename editor --rolename admin 2>/dev/null || true
+  echo "registration on; rails-admin can approve (grant reader) and decline (disable) users."
+}
+
 login
 case "${1:-}" in
   google-autolink) google_autolink ;;
   org-ids) org_ids ;;
-  *) echo "usage: $0 google-autolink|org-ids" >&2; exit 2 ;;
+  signup) signup ;;
+  *) echo "usage: $0 google-autolink|org-ids|signup" >&2; exit 2 ;;
 esac

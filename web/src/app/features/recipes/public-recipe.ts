@@ -70,8 +70,10 @@ import { SaveButton } from './save-button';
       </article>
       <p class="muted footer">
         A public recipe from Recipe Box.
-        @if (auth.isAuthenticated()) {
+        @if (auth.isMember()) {
           <a routerLink="/recipes">Go to my recipes</a>
+        } @else if (auth.isPending()) {
+          Your account is waiting for approval.
         } @else {
           <a href="" (click)="$event.preventDefault(); auth.login()">Sign in</a> to keep your own.
         }
@@ -166,7 +168,7 @@ export class PublicRecipePage implements OnInit {
       next: (r) => {
         this.recipe.set(r);
         // Signed-in readers get a Save button (unless it's their own recipe).
-        if (this.auth.isAuthenticated()) {
+        if (this.auth.isMember()) {
           this.api.savedStatus(r.public_id).subscribe({
             next: (s) => this.status.set(s),
             error: () => this.status.set(null),

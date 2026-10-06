@@ -1,7 +1,7 @@
 import { computed, inject, Injectable } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
-import { map, of, switchMap } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 interface AccessTokenPayload {
   sub?: string;
@@ -32,9 +32,12 @@ export class AuthService {
     return (u?.['name'] ?? u?.['preferred_username'] ?? '') as string;
   });
 
+  /** Bumped after a forced token refresh, so roles are read again. */
+  private readonly tokenRefreshed = new BehaviorSubject(0);
+
   private readonly accessPayload = toSignal(
-    this.oidc.isAuthenticated$.pipe(
-      switchMap((r) =>
+    combineLatest([this.oidc.isAuthenticated$, this.tokenRefreshed]).pipe(
+      switchMap(([r]) =>
         r.isAuthenticated ? this.oidc.getPayloadFromAccessToken() : of({} as AccessTokenPayload),
       ),
       map((p) => (p ?? {}) as AccessTokenPayload),
@@ -45,6 +48,22 @@ export class AuthService {
   /** Keycloak realm roles: reader, editor, admin. */
   readonly roles = computed(() => this.accessPayload().realm_access?.roles ?? []);
   readonly canEdit = computed(() => this.roles().some((r) => r === 'editor' || r === 'admin'));
+  /**
+   * Let in by an admin. Anyone can sign up, but a new account has no role and
+   * can only browse until it is approved (which grants reader).
+   */
+  readonly isMember = computed(() =>
+    this.roles().some((r) => r === 'reader' || r === 'editor' || r === 'admin'),
+  );
+  /** Signed in, but not approved yet. */
+  readonly isPending = computed(() => this.isAuthenticated() && !this.isMember());
+  readonly isAdmin = computed(() => this.roles().includes('admin'));
+
+  /** Fetches a fresh token, e.g. to pick up an approval without signing out. */
+  async refreshRoles(): Promise<void> {
+    await firstValueFrom(this.oidc.forceRefreshSession());
+    this.tokenRefreshed.next(this.tokenRefreshed.value + 1);
+  }
 
   /** Redirects to Keycloak. idpHint 'google' skips straight to Google (when enabled in Keycloak). */
   login(idpHint?: string): void {

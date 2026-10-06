@@ -35,7 +35,10 @@ describe('SharedList', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: AuthService, useValue: { isAuthenticated: authenticated, login: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: { isAuthenticated: authenticated, isMember: authenticated, login: vi.fn() },
+        },
       ],
     });
     backend = TestBed.inject(HttpTestingController);

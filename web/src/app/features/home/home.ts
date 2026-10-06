@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, of } from 'rxjs';
@@ -19,7 +19,20 @@ interface Meta {
   imports: [RouterLink],
   template: `
     <h1>Recipe Box</h1>
-    @if (auth.isAuthenticated()) {
+    @if (auth.isPending()) {
+      <p>
+        Welcome, <strong>{{ auth.displayName() }}</strong
+        >. Your account is waiting for approval. Once it's approved you can keep your own recipes
+        and save other people's.
+      </p>
+      <p>Until then you can <a routerLink="/public">browse all public recipes</a>.</p>
+      <p>
+        <button type="button" (click)="checkAgain()" [disabled]="checking()">Check again</button>
+        @if (checked()) {
+          <span class="muted"> Not approved yet.</span>
+        }
+      </p>
+    } @else if (auth.isAuthenticated()) {
       <p>
         Signed in as <strong>{{ auth.displayName() }}</strong> ({{
           auth.roles().join(', ') || 'no roles'
@@ -32,7 +45,7 @@ interface Meta {
         They're private to you unless you make them public.
       </p>
       <div class="actions">
-        <button type="button" (click)="auth.login()">Sign in</button>
+        <button type="button" (click)="auth.login()">Sign in or sign up</button>
         <button type="button" (click)="auth.login('google')">Sign in with Google</button>
       </div>
       <p><a routerLink="/public">Browse all public recipes</a> without signing in.</p>
@@ -51,6 +64,18 @@ interface Meta {
 })
 export class Home {
   protected readonly auth = inject(AuthService);
+  protected readonly checking = signal(false);
+  protected readonly checked = signal(false);
+
+  protected async checkAgain(): Promise<void> {
+    this.checking.set(true);
+    try {
+      await this.auth.refreshRoles();
+    } finally {
+      this.checking.set(false);
+      this.checked.set(true);
+    }
+  }
   protected readonly meta = toSignal(
     inject(HttpClient)
       .get<Meta>(`${environment.api}/meta`)

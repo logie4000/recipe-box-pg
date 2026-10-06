@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn } from '@angular/router';
+import { CanActivateFn, Router } from '@angular/router';
 import { OidcSecurityService } from 'angular-auth-oidc-client';
 import { map, take } from 'rxjs';
 
@@ -17,6 +17,12 @@ export const authGuard: CanActivateFn = () => {
       return isAuthenticated;
     }),
   );
+};
+
+/** Approved accounts only; a pending one goes home, where it says why. */
+export const memberGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  return auth.isMember() || inject(Router).createUrlTree(['/']);
 };
 
 /** Hides routes from users without one of the given realm roles (the API still enforces this). */

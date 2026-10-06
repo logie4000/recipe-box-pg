@@ -1,15 +1,15 @@
 import { Routes } from '@angular/router';
 
-import { authGuard, roleGuard } from './core/auth.guard';
+import { authGuard, memberGuard, roleGuard } from './core/auth.guard';
 import { Home } from './features/home/home';
 
 export const routes: Routes = [
   { path: '', component: Home },
   {
-    // Every signed-in user keeps their own recipes (the API scopes everything
-    // to the caller), so no role guard beyond signing in.
+    // Every approved user keeps their own recipes (the API scopes everything
+    // to the caller).
     path: 'recipes',
-    canActivate: [authGuard],
+    canActivate: [authGuard, memberGuard],
     children: [
       {
         path: '',
@@ -47,8 +47,14 @@ export const routes: Routes = [
   {
     // The user's bookmarks of other people's shared recipes.
     path: 'saved',
-    canActivate: [authGuard],
+    canActivate: [authGuard, memberGuard],
     loadComponent: () => import('./features/recipes/saved-list').then((m) => m.SavedList),
+  },
+  {
+    // Sign-ups waiting for an admin.
+    path: 'approvals',
+    canActivate: [authGuard, roleGuard('admin')],
+    loadComponent: () => import('./features/approvals/approvals').then((m) => m.Approvals),
   },
   {
     // Shared recipe link: no login.

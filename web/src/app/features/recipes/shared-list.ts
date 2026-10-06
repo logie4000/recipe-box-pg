@@ -105,7 +105,7 @@ interface AuthorGroup {
               [badge]="r.mine ? 'Yours' : ''"
               [details]="details(r, showAuthor)"
             >
-              @if (!r.mine && auth.isAuthenticated()) {
+              @if (!r.mine && auth.isMember()) {
                 <app-save-button
                   overlay
                   [publicId]="r.public_id"
@@ -165,7 +165,7 @@ export class SharedList implements OnInit {
       shared: this.api.listShared(),
       // Bookmarks are for signed-in users, and a nicety: the list still shows
       // if they can't be loaded.
-      saved: this.auth.isAuthenticated()
+      saved: this.auth.isMember()
         ? this.api.listSaved().pipe(catchError(() => of({ items: [] })))
         : of({ items: [] }),
     }).subscribe({

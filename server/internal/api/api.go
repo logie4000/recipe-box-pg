@@ -30,6 +30,7 @@ type Server struct {
 	Log              *slog.Logger
 	MinClientVersion string
 	AppVersion       string
+	AdminRole        string // empty: nobody is an admin
 	CORSOrigins      []string
 	Images           storage.Store
 	// Per-IP limits on /api/*; nil means unlimited (tests).
@@ -62,6 +63,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
 	mux.Handle("GET /api/v1/saved-recipes", protected(s.listSavedRecipes))
 	mux.Handle("GET /api/v1/saved-recipes/{public_id}", protected(s.getSavedStatus))
+	mux.Handle("GET /api/v1/account-requests", protected(s.listAccountRequests))
 
 	// CORS runs first so a 429 still carries the headers the browser needs
 	// to read it.
@@ -119,7 +121,7 @@ func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
 		items []sqlc.Note
 		total int64
 	)
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		if items, err = q.ListNotes(r.Context(), sqlc.ListNotesParams{PageLimit: int32(limit), PageOffset: int32(offset)}); err != nil {
 			return err
@@ -141,7 +143,7 @@ func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var note sqlc.Note
-	err = db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err = db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		note, err = q.GetNote(r.Context(), id)
 		return err
 	})
@@ -154,7 +156,7 @@ func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) listPrivateNotes(w http.ResponseWriter, r *http.Request) {
 	var items []sqlc.ListPrivateNotesRow
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		items, err = q.ListPrivateNotes(r.Context())
 		return err
@@ -178,7 +180,7 @@ func (s *Server) listRecipes(w http.ResponseWriter, r *http.Request) {
 		items []sqlc.ListRecipesRow
 		total int64
 	)
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		if items, err = q.ListRecipes(r.Context(), sqlc.ListRecipesParams{OwnerSub: owner, Limit: int32(limit), Offset: int32(offset)}); err != nil {
 			return err
@@ -200,7 +202,7 @@ func (s *Server) getRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var recipe sqlc.GetRecipeRow
-	err = db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err = db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		recipe, err = q.GetRecipe(r.Context(), sqlc.GetRecipeParams{ID: id, OwnerSub: auth.UserFrom(r.Context()).Subject})
 		return err
 	})
@@ -226,7 +228,7 @@ func (s *Server) listSharedRecipes(w http.ResponseWriter, r *http.Request) {
 	if u := auth.UserFrom(r.Context()); u != nil {
 		caller = u.Subject
 	}
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		items, err = q.ListSharedRecipes(r.Context(), sqlc.ListSharedRecipesParams{
 			CallerSub:  caller,
@@ -251,7 +253,7 @@ func (s *Server) listSharedRecipes(w http.ResponseWriter, r *http.Request) {
 // being shared are left out.
 func (s *Server) listSavedRecipes(w http.ResponseWriter, r *http.Request) {
 	var items []sqlc.ListSavedRecipesRow
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		items, err = q.ListSavedRecipes(r.Context(), auth.UserFrom(r.Context()).Subject)
 		return err
@@ -272,7 +274,7 @@ func (s *Server) getSavedStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var status sqlc.GetSavedStatusRow
-	err := db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		var err error
 		status, err = q.GetSavedStatus(r.Context(), sqlc.GetSavedStatusParams{
 			CallerSub: auth.UserFrom(r.Context()).Subject,
@@ -325,7 +327,7 @@ func (s *Server) getRecipeImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var key pgtype.Text
-	err = db.ReadTx(r.Context(), s.Pool, requestContext(r), func(q *sqlc.Queries) error {
+	err = db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
 		key, err = q.GetRecipeImageKey(r.Context(), sqlc.GetRecipeImageKeyParams{ID: id, OwnerSub: auth.UserFrom(r.Context()).Subject})
 		return err
 	})
@@ -390,8 +392,36 @@ func (s *Server) serveImage(w http.ResponseWriter, r *http.Request, key pgtype.T
 	http.ServeContent(w, r, "", obj.ModTime, obj.Body)
 }
 
-func requestContext(r *http.Request) db.RequestContext {
-	rc := db.RequestContext{TenantID: auth.TenantFrom(r.Context())}
+func (s *Server) isAdmin(r *http.Request) bool {
+	u := auth.UserFrom(r.Context())
+	return u != nil && s.AdminRole != "" && u.HasRole(s.AdminRole)
+}
+
+// listAccountRequests is the admin's list of sign-ups waiting for approval.
+// Approving and declining are writes, on the write-api.
+func (s *Server) listAccountRequests(w http.ResponseWriter, r *http.Request) {
+	if !s.isAdmin(r) {
+		httpx.Error(w, http.StatusForbidden, "forbidden", "admins only")
+		return
+	}
+	var items []sqlc.ListAccountRequestsRow
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		items, err = q.ListAccountRequests(r.Context())
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	if items == nil {
+		items = []sqlc.ListAccountRequestsRow{}
+	}
+	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
+}
+
+func (s *Server) requestContext(r *http.Request) db.RequestContext {
+	rc := db.RequestContext{TenantID: auth.TenantFrom(r.Context()), IsAdmin: s.isAdmin(r)}
 	if u := auth.UserFrom(r.Context()); u != nil {
 		rc.UserID = u.Subject
 	}

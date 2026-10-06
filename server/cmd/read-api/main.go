@@ -61,6 +61,7 @@ func run() error {
 		Log:              log,
 		MinClientVersion: cfg.MinClientVersion,
 		AppVersion:       cfg.AppVersion,
+		AdminRole:        cfg.AdminRole,
 		CORSOrigins:      cfg.CORSAllowedOrigins,
 		Images:           images,
 		AnonymousLimit:   httpx.NewRateLimiter(cfg.RateLimitAnonymous, cfg.RateLimitAnonymousBurst),

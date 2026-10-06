@@ -17,7 +17,15 @@ describe('PublicRecipePage', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: AuthService, useValue: { isAuthenticated: signal(false), login: vi.fn() } },
+        {
+          provide: AuthService,
+          useValue: {
+            isAuthenticated: signal(false),
+            isMember: signal(false),
+            isPending: signal(false),
+            login: vi.fn(),
+          },
+        },
       ],
     });
     backend = TestBed.inject(HttpTestingController);
