@@ -100,4 +100,24 @@ describe('RecipeForm', () => {
     req.flush({ id: 9, recipe: {} });
     expect(navigate).toHaveBeenCalledWith(['/recipes', 9], {});
   });
+
+  it('shows an error that is not about one field, such as the recipe limit', async () => {
+    const fixture = TestBed.createComponent(RecipeForm);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const title = el.querySelector<HTMLInputElement>('input[formcontrolname="title"]')!;
+    title.value = 'Soup';
+    title.dispatchEvent(new Event('input'));
+
+    el.querySelector('form')!.dispatchEvent(new Event('submit'));
+    backend
+      .expectOne('/api/v1/recipes')
+      .flush(
+        { error: 'invalid', errors: { base: ['You have reached the limit of 2000 recipes.'] } },
+        { status: 422, statusText: 'Unprocessable Content' },
+      );
+    await fixture.whenStable();
+
+    expect(el.querySelector('[role="alert"]')?.textContent).toContain('limit of 2000 recipes');
+  });
 });

@@ -74,5 +74,10 @@ module WriteApi
     # The read-api limits reads per client IP.
     config.x.rate_limit_writes_per_minute = Integer(ENV.fetch("RATE_LIMIT_WRITES_PER_MINUTE", "120"))
     config.x.rate_limit_uploads_per_minute = Integer(ENV.fetch("RATE_LIMIT_UPLOADS_PER_MINUTE", "20"))
+
+    # Per-user storage: total photo size (RecipeImagesController) and number
+    # of recipes (RecipesController#create).
+    config.x.photo_storage_per_user = Integer(ENV.fetch("PHOTO_STORAGE_MB_PER_USER", "250")).megabytes
+    config.x.max_recipes_per_user = Integer(ENV.fetch("MAX_RECIPES_PER_USER", "2000"))
   end
 end

@@ -8,6 +8,11 @@ module Api
       def create
         authorize Recipe
         recipe = Recipe.new(recipe_params.merge(owner_sub: current_user_sub, author_name: author_name))
+        lock_current_user!
+        if Recipe.owned_by(current_user_sub).count >= max_recipes
+          recipe.errors.add(:base, "You have reached the limit of #{max_recipes} recipes. Delete some to add more.")
+          return render_errors(recipe)
+        end
         return render_errors(recipe) unless recipe.save_with_unique_public_id
 
         render json: { id: recipe.id, recipe: recipe }, status: :created
@@ -30,6 +35,8 @@ module Api
       end
 
       private
+        def max_recipes = Rails.configuration.x.max_recipes_per_user
+
         # Shown on the public list. Refreshed on every save, so a changed
         # name catches up the next time the owner edits.
         def author_name

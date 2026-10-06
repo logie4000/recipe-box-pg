@@ -50,6 +50,18 @@ RSpec.describe "/api/v1/recipes" do
       expect(recipe.public_id).not_to eq(chosen)
     end
 
+    it "stops at the per-user recipe limit, which other users don't share" do
+      allow(Rails.configuration.x).to receive(:max_recipes_per_user).and_return(2)
+      2.times { create_recipe("alice-sub") }
+
+      post "/api/v1/recipes", headers: alice, as: :json, params: { recipe: { title: "Soup" } }
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.parsed_body["errors"]["base"]).to eq([ "You have reached the limit of 2 recipes. Delete some to add more." ])
+
+      post "/api/v1/recipes", headers: bob, as: :json, params: { recipe: { title: "Soup" } }
+      expect(response).to have_http_status(:created)
+    end
+
     it "gives every recipe its own random public_id" do
       ids = Array.new(3) { create_recipe("alice-sub").public_id }
       expect(ids.uniq.size).to eq(3)

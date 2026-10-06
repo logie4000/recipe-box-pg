@@ -432,6 +432,10 @@ export class RecipeForm implements OnInit {
         this.saving.set(false);
         if (err.status === 422 && err.error?.errors) {
           this.serverErrors.set(err.error.errors);
+          // Not about one field, e.g. the per-user recipe limit.
+          this.error.set(err.error.errors.base?.[0] ?? null);
+        } else if (err.status === 429) {
+          this.error.set(err.error?.message ?? 'Too many changes at once. Try again in a minute.');
         } else {
           this.error.set('Save failed. Check your connection and try again.');
         }
