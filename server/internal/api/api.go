@@ -32,6 +32,9 @@ type Server struct {
 	AppVersion       string
 	CORSOrigins      []string
 	Images           storage.Store
+	// Per-IP limits on /api/*; nil means unlimited (tests).
+	AnonymousLimit *httpx.RateLimiter
+	SignedInLimit  *httpx.RateLimiter
 }
 
 func (s *Server) Routes() http.Handler {
@@ -60,11 +63,17 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/saved-recipes", protected(s.listSavedRecipes))
 	mux.Handle("GET /api/v1/saved-recipes/{public_id}", protected(s.getSavedStatus))
 
-	return httpx.Chain(mux,
+	// CORS runs first so a 429 still carries the headers the browser needs
+	// to read it.
+	mw := []func(http.Handler) http.Handler{
 		httpx.Recover(s.Log),
 		httpx.Logger(s.Log),
 		httpx.CORS(s.CORSOrigins),
-	)
+	}
+	if s.AnonymousLimit != nil && s.SignedInLimit != nil {
+		mw = append(mw, httpx.RateLimit(s.AnonymousLimit, s.SignedInLimit))
+	}
+	return httpx.Chain(mux, mw...)
 }
 
 func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {

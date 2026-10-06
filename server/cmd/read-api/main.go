@@ -16,6 +16,7 @@ import (
 	"github.com/logie4000/webapp-template/server/internal/auth"
 	"github.com/logie4000/webapp-template/server/internal/config"
 	"github.com/logie4000/webapp-template/server/internal/db"
+	"github.com/logie4000/webapp-template/server/internal/httpx"
 	"github.com/logie4000/webapp-template/server/internal/storage"
 )
 
@@ -62,6 +63,8 @@ func run() error {
 		AppVersion:       cfg.AppVersion,
 		CORSOrigins:      cfg.CORSAllowedOrigins,
 		Images:           images,
+		AnonymousLimit:   httpx.NewRateLimiter(cfg.RateLimitAnonymous, cfg.RateLimitAnonymousBurst),
+		SignedInLimit:    httpx.NewRateLimiter(cfg.RateLimitSignedIn, cfg.RateLimitSignedInBurst),
 	}
 
 	httpServer := &http.Server{

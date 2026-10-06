@@ -69,5 +69,10 @@ module WriteApi
     # from the same directory; in dev both default to <repo>/storage/images.
     config.x.image_storage_dir = ENV["IMAGE_STORAGE_DIR"].presence ||
       (Rails.env.test? ? Rails.root.join("tmp/test-images") : Rails.root.join("../storage/images")).to_s
+
+    # Per-user write limits (ApplicationController, RecipeImagesController).
+    # The read-api limits reads per client IP.
+    config.x.rate_limit_writes_per_minute = Integer(ENV.fetch("RATE_LIMIT_WRITES_PER_MINUTE", "120"))
+    config.x.rate_limit_uploads_per_minute = Integer(ENV.fetch("RATE_LIMIT_UPLOADS_PER_MINUTE", "20"))
   end
 end
