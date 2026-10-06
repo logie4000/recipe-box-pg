@@ -27,8 +27,12 @@ type Config struct {
 	AppVersion         string
 	LogFormat          string // "json" (default) or "text"
 	AdminRole          string // realm role that may approve sign-ups
-	ImageStorage       string // "local" (default)
+	ImageStorage       string // "local" (default) or "s3"
 	ImageStorageDir    string
+	ImageS3Bucket      string
+	ImageS3Prefix      string
+	ImageS3Endpoint    string // only for S3-compatible servers such as MinIO
+	AWSRegion          string
 	// Per client IP, per minute; 0 turns a limit off. See httpx.RateLimit.
 	RateLimitAnonymous      int
 	RateLimitAnonymousBurst int
@@ -57,6 +61,10 @@ func Load() (Config, error) {
 		// Same directory the write-api stores photos in. `make api` runs from
 		// server/, so the dev default is <repo>/storage/images.
 		ImageStorageDir: env("IMAGE_STORAGE_DIR", filepath.Join("..", "storage", "images")),
+		ImageS3Bucket:   os.Getenv("IMAGE_S3_BUCKET"),
+		ImageS3Prefix:   os.Getenv("IMAGE_S3_PREFIX"),
+		ImageS3Endpoint: os.Getenv("IMAGE_S3_ENDPOINT"),
+		AWSRegion:       env("AWS_REGION", "us-east-1"),
 	}
 
 	maxConns, err := strconv.Atoi(env("READ_API_DB_MAX_CONNS", "10"))

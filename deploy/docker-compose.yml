@@ -95,9 +95,14 @@ services:
       RATE_LIMIT_UPLOADS_PER_MINUTE: ${RATE_LIMIT_UPLOADS_PER_MINUTE:-20}
       PHOTO_STORAGE_MB_PER_USER: ${PHOTO_STORAGE_MB_PER_USER:-250}
       MAX_RECIPES_PER_USER: ${MAX_RECIPES_PER_USER:-2000}
+      # Recipe photos. The write-api stores them, the read-api serves them:
+      # on the images volume (local) or in an S3 bucket (s3, production).
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
       IMAGE_STORAGE_DIR: /srv/images
+      IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:-}
+      IMAGE_S3_PREFIX: ${IMAGE_S3_PREFIX:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes:
-      # Recipe photos. The write-api stores them, the read-api serves them.
       - images:/srv/images
     ports:
       - "127.0.0.1:${WRITE_API_PORT:-3000}:80"
@@ -129,7 +134,11 @@ services:
       RATE_LIMIT_ANON_BURST: ${RATE_LIMIT_ANON_BURST:-60}
       RATE_LIMIT_USER_PER_MINUTE: ${RATE_LIMIT_USER_PER_MINUTE:-600}
       RATE_LIMIT_USER_BURST: ${RATE_LIMIT_USER_BURST:-200}
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-local}
       IMAGE_STORAGE_DIR: /srv/images
+      IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:-}
+      IMAGE_S3_PREFIX: ${IMAGE_S3_PREFIX:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes:
       - images:/srv/images:ro
     ports:

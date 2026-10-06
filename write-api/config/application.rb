@@ -66,9 +66,16 @@ module WriteApi
     config.x.tenant_mode = ENV.fetch("TENANT_MODE", "off") == "on"
 
     # Recipe photos (app/services/image_store.rb). The read-api serves them
-    # from the same directory; in dev both default to <repo>/storage/images.
+    # from the same place: IMAGE_STORAGE=local (in dev both default to
+    # <repo>/storage/images) or s3.
     config.x.image_storage_dir = ENV["IMAGE_STORAGE_DIR"].presence ||
       (Rails.env.test? ? Rails.root.join("tmp/test-images") : Rails.root.join("../storage/images")).to_s
+    config.x.image_s3 = {
+      bucket: ENV["IMAGE_S3_BUCKET"],
+      prefix: ENV.fetch("IMAGE_S3_PREFIX", ""),
+      region: ENV.fetch("AWS_REGION", "us-east-1"),
+      endpoint: ENV["IMAGE_S3_ENDPOINT"]
+    }
 
     # Per-user write limits (ApplicationController, RecipeImagesController).
     # The read-api limits reads per client IP.

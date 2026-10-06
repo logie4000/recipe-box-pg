@@ -5,11 +5,13 @@ package api
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -364,32 +366,63 @@ func (s *Server) getPublicRecipeImage(w http.ResponseWriter, r *http.Request) {
 }
 
 // serveImage sends the stored photo. Keys are new for every upload, so the
-// key is the ETag and unchanged photos come back as 304s. The headers stop
-// browsers from treating the bytes as anything but an image.
+// key is the ETag and unchanged photos come back as 304s without touching
+// storage. The headers stop browsers from treating the bytes as anything but
+// an image. Photos are streamed through this service rather than redirected
+// to S3, so these headers and the access checks above apply to every byte.
 func (s *Server) serveImage(w http.ResponseWriter, r *http.Request, key pgtype.Text) {
 	if !key.Valid || s.Images == nil {
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 		return
 	}
+	h := w.Header()
+	etag := `"` + path.Base(key.String) + `"`
+	h.Set("ETag", etag)
+	if etagMatches(r.Header.Get("If-None-Match"), etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	obj, err := s.Images.Open(r.Context(), key.String)
 	if errors.Is(err, storage.ErrNotFound) {
 		s.Log.Warn("image missing from storage", "key", key.String)
+		h.Del("ETag")
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 		return
 	}
 	if err != nil {
 		s.Log.Error("image storage", "err", err)
+		h.Del("ETag")
 		httpx.Error(w, http.StatusInternalServerError, "internal", "storage error")
 		return
 	}
 	defer obj.Body.Close()
 
-	h := w.Header()
 	h.Set("Content-Type", storage.ContentType(key.String))
-	h.Set("ETag", `"`+path.Base(key.String)+`"`)
+	h.Set("Content-Length", strconv.FormatInt(obj.Size, 10))
+	if !obj.ModTime.IsZero() {
+		h.Set("Last-Modified", obj.ModTime.UTC().Format(http.TimeFormat))
+	}
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("Content-Security-Policy", "default-src 'none'; sandbox")
-	http.ServeContent(w, r, "", obj.ModTime, obj.Body)
+	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
+	}
+	if _, err := io.Copy(w, obj.Body); err != nil {
+		s.Log.Warn("image copy", "key", key.String, "err", err)
+	}
+}
+
+// etagMatches reports whether an If-None-Match header lists etag (or is *).
+func etagMatches(header, etag string) bool {
+	for _, t := range strings.Split(header, ",") {
+		t = strings.TrimPrefix(strings.TrimSpace(t), "W/")
+		if t == etag || t == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) isAdmin(r *http.Request) bool {

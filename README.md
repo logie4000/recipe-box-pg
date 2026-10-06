@@ -171,8 +171,12 @@ applies to both APIs; the default includes `capacitor://localhost` and
   with a separate password for each database role.
 - Deploy: `IMAGE_TAG=<sha> deploy/scripts/deploy.sh` pulls from ECR, runs
   `db:migrate` as app_owner, then `up -d`.
+- Recipe photos: a private, versioned S3 bucket (`IMAGE_S3_BUCKET`), read and
+  written with the instance role. Setup, IAM policy and moving existing photos:
+  `docs/recipes.md` (Photos on S3).
 - Backups: `pg_dump -Fc` of `app` and `keycloak` to S3 every night, plus daily
-  EBS snapshots through DLM (set that up in AWS). `make restore-drill` restores
+  EBS snapshots through DLM (set that up in AWS). Photos are covered by S3
+  versioning. `make restore-drill` restores
   the newest dump into a scratch container and checks row counts.
 - Logs: slog JSON (Go) and lograge JSON (Rails).
 

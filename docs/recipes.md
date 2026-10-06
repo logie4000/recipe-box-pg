@@ -82,13 +82,17 @@ family accounts get it (Keycloak default roles).
 
 One photo of the finished dish per recipe.
 
-- **Storage.** The write-api writes and deletes files through
+- **Storage.** The write-api writes and deletes photos through
   `ImageStore` (`write-api/app/services/image_store.rb`); the read-api only
-  opens them (`server/internal/storage`). Both use `IMAGE_STORAGE=local` and
-  `IMAGE_STORAGE_DIR`: in development `<repo>/storage/images` (gitignored), in
-  containers the `images` volume at `/srv/images`, mounted read-only into the
-  read-api. Another backend such as S3 only needs `write`/`delete`/`exist?` in
-  Ruby and `Open` in Go. The volume is not in the nightly database backup yet.
+  opens them (`server/internal/storage`). Both read the same settings:
+  - `IMAGE_STORAGE=local` (the default in development) with
+    `IMAGE_STORAGE_DIR`: `<repo>/storage/images` (gitignored), or in
+    containers the `images` volume at `/srv/images`, mounted read-only into
+    the read-api.
+  - `IMAGE_STORAGE=s3` (the default in `docker-compose.prod.yml`) with
+    `IMAGE_S3_BUCKET`, an optional `IMAGE_S3_PREFIX` and `AWS_REGION`.
+    Credentials come from the EC2 instance role (or `AWS_PROFILE` /
+    `AWS_ACCESS_KEY_ID` in development). See [Photos on S3](#photos-on-s3).
 - **Upload.** The file type comes from the first bytes (JPEG, PNG or WebP;
   never SVG), not the name or Content-Type. Up to 10 MB
   (`RecipeImage::MAX_BYTES`; nginx allows 12 MB). Every upload gets a new
@@ -102,6 +106,72 @@ One photo of the finished dish per recipe.
   are 304s; `Cache-Control: no-cache` makes browsers ask again each time, so
   making a recipe private hides its photo at once. Responses carry
   `nosniff` and a `sandbox` CSP.
+
+## Photos on S3
+
+Production keeps photos in a private S3 bucket. The object key is
+`IMAGE_S3_PREFIX` + the photo's key, e.g. `recipe-box/recipes/<24 chars>.jpg`.
+The read-api streams photos to the browser rather than redirecting to S3, so
+the bucket never needs to be public, the access checks and headers above apply
+to every photo, and a 304 doesn't touch S3 at all.
+
+**Bucket.** Create it in `AWS_REGION` with Block Public Access on (the
+default), default encryption (SSE-S3, also the default) and **versioning on**.
+Add a lifecycle rule that expires noncurrent versions after, say, 30 days.
+
+**Backups.** With versioning, a replaced or deleted photo stays recoverable as
+a noncurrent version until that rule expires it, which covers restoring the
+nightly database dump to any point inside the window: every `image_key` in it
+still has its bytes. S3 itself stores objects redundantly across zones, so
+there's no separate photo backup job. For protection against losing the
+bucket or the account, add S3 replication to a bucket in another region or
+account.
+
+**Instance role.** Both APIs and the backup container use the EC2 instance
+role. Attach a policy like this one (with your bucket and prefix):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::my-photos/recipe-box/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::my-photos",
+      "Condition": { "StringLike": { "s3:prefix": "recipe-box/*" } }
+    }
+  ]
+}
+```
+
+`s3:ListBucket` is only for `images:copy`, and it also makes a missing photo
+a 404 rather than a 403. Containers reach the role through IMDSv2, which needs
+a metadata hop limit of 2 on the instance (the Amazon Linux 2023 default).
+
+**Moving existing photos.** `bin/rails images:copy FROM=local TO=s3` copies
+every photo the target doesn't have yet and never deletes anything, so it is
+safe to repeat. On a server that already has photos on the `images` volume:
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml --env-file .env \
+  run --rm -e IMAGE_STORAGE=local write-api bin/rails images:copy FROM=local TO=s3
+```
+
+Run it once before switching `IMAGE_STORAGE` to `s3`, deploy, then run it
+again to pick up photos uploaded in between. From a development machine, set
+`IMAGE_S3_BUCKET` and AWS credentials and run it in `write-api/`.
+
+**Trying S3 locally.** Any S3-compatible server works through
+`IMAGE_S3_ENDPOINT`, for example
+`docker run -p 9090:9090 -e COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS=photos adobe/s3mock`
+with `IMAGE_STORAGE=s3`, `IMAGE_S3_BUCKET=photos`,
+`IMAGE_S3_ENDPOINT=http://127.0.0.1:9090` and any `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`. Restart both APIs after changing these.
 
 ## Web pages
 
@@ -129,6 +199,11 @@ as a blob; the public page uses the public URL directly.
   users, and key format checks.
 - `server/internal/storage/storage_test.go` and `TestServeImage`: keys outside
   the format never reach the disk; headers, ETag and 304s.
+  `s3_integration_test.go` reads from a throwaway S3Mock container (skipped
+  without Docker).
+- `write-api/spec/services/image_store_spec.rb`: the S3 backend against the
+  SDK's stubbed client (prefix, content type, key checks, listing) and
+  `ImageStore.copy`.
 - `web/src/app/features/recipes/*.spec.ts`: API calls, form, share switch
   and the public page.
 - `server/internal/api/api_test.go`: the recipe routes need a token; the
