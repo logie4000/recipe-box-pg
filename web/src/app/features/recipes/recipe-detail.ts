@@ -1,8 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
 import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 
+import { pageTitle } from '../../core/page-title';
 import { RecipeExport } from './import/recipe-export';
 import { RecipeBody } from './recipe-body';
 import { RecipePhoto } from './recipe-photo';
@@ -160,6 +162,7 @@ export class RecipeDetail implements OnInit {
 
   private readonly api = inject(RecipesApi);
   private readonly router = inject(Router);
+  private readonly title = inject(Title);
   protected readonly exporter = inject(RecipeExport);
 
   protected readonly recipe = signal<Recipe | null>(null);
@@ -172,10 +175,14 @@ export class RecipeDetail implements OnInit {
     // Set by RecipeForm when the recipe saved but its photo didn't.
     this.imageError.set((history.state as { photoError?: string } | null)?.photoError ?? null);
     this.api.get(Number(this.id())).subscribe({
-      next: (r) => this.recipe.set(r),
+      next: (r) => {
+        this.recipe.set(r);
+        this.title.setTitle(pageTitle(r.title));
+      },
       error: (err: HttpErrorResponse) => {
         if (err.status === 404 || err.status === 400) {
           this.notFound.set(true);
+          this.title.setTitle(pageTitle('Recipe not found'));
         } else {
           this.error.set('Could not load this recipe.');
         }
