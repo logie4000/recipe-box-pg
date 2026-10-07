@@ -41,6 +41,7 @@ gem "jwt", "~> 3.1"                       # verify Keycloak access tokens
 gem "pundit", "~> 2.5"                    # role-based authorization policies
 gem "rack-cors"                           # CORS_ALLOWED_ORIGINS
 gem "solid_queue", "~> 1.2"               # background jobs in the same Postgres
+gem "aws-sdk-s3", "~> 1.0", require: false # recipe photos on S3 (IMAGE_STORAGE=s3)
 gem "lograge"                             # one-line JSON request logs
 gem "acts_as_tenant", "~> 1.0"            # only active when TENANT_MODE=on
 

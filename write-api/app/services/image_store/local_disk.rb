@@ -19,6 +19,15 @@ module ImageStore
 
     def exist?(key) = path_for(key).file?
 
+    def read(key) = File.binread(path_for(key))
+
+    # Every stored key, for bin/rails images:copy.
+    def each_key
+      return enum_for(:each_key) unless block_given?
+
+      Dir.glob("recipes/*", base: root).sort.each { |key| yield key if ImageStore.valid_key?(key) }
+    end
+
     private
       def path_for(key)
         raise ArgumentError, "invalid image key" unless ImageStore.valid_key?(key)
