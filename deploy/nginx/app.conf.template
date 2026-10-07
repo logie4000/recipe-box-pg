@@ -3,8 +3,8 @@
 #
 #   APP_DOMAIN=example.com APP_NAME=myapp deploy/nginx/render.sh > /etc/nginx/sites-available/myapp.conf
 #
-# app.${APP_DOMAIN}   Angular build + the two APIs + /admin
-# auth.${APP_DOMAIN}  Keycloak
+# ${APP_HOST}   Angular build + the two APIs + /admin (default app.<APP_DOMAIN>)
+# ${AUTH_HOST}  Keycloak (default auth.<APP_DOMAIN>)
 # TLS certificates: certbot (paths below) or your own.
 
 upstream ${APP_NAME}_read_api  { server 127.0.0.1:8080; keepalive 16; }
@@ -27,17 +27,17 @@ limit_req_zone $binary_remote_addr zone=${APP_NAME}_api:10m rate=20r/s;
 
 server {
     listen 80;
-    server_name app.${APP_DOMAIN} auth.${APP_DOMAIN};
+    server_name ${APP_HOST} ${AUTH_HOST};
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl;
     http2 on;
-    server_name app.${APP_DOMAIN};
+    server_name ${APP_HOST};
 
-    ssl_certificate     /etc/letsencrypt/live/app.${APP_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/app.${APP_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/${APP_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${APP_HOST}/privkey.pem;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options nosniff always;
@@ -83,10 +83,10 @@ server {
 server {
     listen 443 ssl;
     http2 on;
-    server_name auth.${APP_DOMAIN};
+    server_name ${AUTH_HOST};
 
-    ssl_certificate     /etc/letsencrypt/live/auth.${APP_DOMAIN}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/auth.${APP_DOMAIN}/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/${AUTH_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${AUTH_HOST}/privkey.pem;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
 

@@ -44,7 +44,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?set KC_BOOTSTRAP_ADMIN_PASSWORD in .env}
       KC_HEALTH_ENABLED: "true"
       # ${...} placeholders in keycloak/realm.json are filled from these
-      APP_DOMAIN: ${APP_DOMAIN:-example.com}
+      APP_HOST: ${APP_HOST:-app.${APP_DOMAIN:-example.com}}
       OIDC_ADMIN_CLIENT_SECRET: ${OIDC_ADMIN_CLIENT_SECRET:?set OIDC_ADMIN_CLIENT_SECRET in .env}
       KC_GOOGLE_CLIENT_ID: ${KC_GOOGLE_CLIENT_ID:-}
       KC_GOOGLE_CLIENT_SECRET: ${KC_GOOGLE_CLIENT_SECRET:-}
@@ -78,14 +78,14 @@ services:
       # used only by `bin/rails db:migrate` (deploy step), never by the server
       APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
-      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
       OIDC_ADMIN_CLIENT_ID: ${OIDC_ADMIN_CLIENT_ID:-rails-admin}
       OIDC_ADMIN_CLIENT_SECRET: ${OIDC_ADMIN_CLIENT_SECRET}
-      ADMIN_REDIRECT_URI: ${ADMIN_REDIRECT_URI}
-      ADMIN_POST_LOGOUT_URI: ${ADMIN_POST_LOGOUT_URI}
-      APP_HOST: app.${APP_DOMAIN:-example.com}
+      ADMIN_REDIRECT_URI: ${ADMIN_REDIRECT_URI:-}
+      ADMIN_POST_LOGOUT_URI: ${ADMIN_POST_LOGOUT_URI:-}
+      APP_HOST: ${APP_HOST:-app.${APP_DOMAIN:-example.com}}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       TENANT_MODE: ${TENANT_MODE:-off}
       TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}
@@ -121,7 +121,7 @@ services:
       APP_DB_NAME: ${APP_DB_NAME:-app}
       APP_READER_PASSWORD: ${APP_READER_PASSWORD}
       READ_API_DB_MAX_CONNS: ${READ_API_DB_MAX_CONNS:-10}
-      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}

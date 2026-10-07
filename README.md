@@ -165,8 +165,13 @@ applies to both APIs; the default includes `capacitor://localhost` and
   data on an EBS volume at `/srv/pgdata`), Keycloak (`start --optimized`,
   `--proxy-headers xforwarded`), read-api, write-api (Solid Queue runs inside
   Puma), and a nightly backup container.
+- Hostnames: the site at `APP_HOST` and Keycloak at `AUTH_HOST`, by default
+  `app.<APP_DOMAIN>` and `auth.<APP_DOMAIN>`. Each needs a DNS record and a
+  TLS certificate, and `oidc.authority` in `web/src/environments/environment.ts`
+  must be `https://<AUTH_HOST>/realms/app`.
 - Your nginx: render `deploy/nginx/app.conf.template` with
-  `deploy/nginx/render.sh`. It serves `web/dist/web/browser` from
+  `deploy/nginx/render.sh` (pass the same `APP_DOMAIN`, and `APP_HOST` /
+  `AUTH_HOST` if you set them). It serves `web/dist/web/browser` from
   `/srv/www/<app>`.
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
   with a separate password for each database role. Setup: `docs/ssm.md`
