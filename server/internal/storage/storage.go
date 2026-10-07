@@ -1,6 +1,7 @@
 // Package storage opens recipe photos. The Rails write-api writes and
 // deletes them (write-api/app/services/image_store.rb); this service only
-// reads, so in containers its volume is mounted read-only.
+// reads, so in containers its volume is mounted read-only, and on S3 it only
+// needs s3:GetObject.
 package storage
 
 import (
@@ -36,24 +37,36 @@ func ContentType(key string) string { return contentTypes[path.Ext(key)] }
 
 // Object is an open photo. Body must be closed.
 type Object struct {
-	Body    io.ReadSeekCloser
+	Body    io.ReadCloser
 	Size    int64
 	ModTime time.Time
 }
 
-// Store is where photos are read from. Another backend (S3, say) implements
-// Open next to the write-api's ImageStore backend.
+// Store is where photos are read from, the same place the write-api's
+// ImageStore backend writes them.
 type Store interface {
 	Open(ctx context.Context, key string) (*Object, error)
 }
 
+// Options picks and configures the backend (IMAGE_STORAGE and friends).
+type Options struct {
+	Kind     string // "local" (default) or "s3"
+	Dir      string // local: IMAGE_STORAGE_DIR
+	Bucket   string // s3: IMAGE_S3_BUCKET
+	Prefix   string // s3: IMAGE_S3_PREFIX, put in front of every key
+	Region   string // s3: AWS_REGION
+	Endpoint string // s3: IMAGE_S3_ENDPOINT, only for S3-compatible servers such as MinIO
+}
+
 // New returns the backend named by IMAGE_STORAGE.
-func New(kind, dir string) (Store, error) {
-	switch kind {
+func New(ctx context.Context, o Options) (Store, error) {
+	switch o.Kind {
 	case "", "local":
-		return LocalDisk{Root: dir}, nil
+		return LocalDisk{Root: o.Dir}, nil
+	case "s3":
+		return NewS3(ctx, o)
 	default:
-		return nil, fmt.Errorf("IMAGE_STORAGE=%s is not supported", kind)
+		return nil, fmt.Errorf("IMAGE_STORAGE=%s is not supported", o.Kind)
 	}
 }
 

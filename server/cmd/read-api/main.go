@@ -49,7 +49,14 @@ func run() error {
 	}
 	defer pool.Close()
 
-	images, err := storage.New(cfg.ImageStorage, cfg.ImageStorageDir)
+	images, err := storage.New(ctx, storage.Options{
+		Kind:     cfg.ImageStorage,
+		Dir:      cfg.ImageStorageDir,
+		Bucket:   cfg.ImageS3Bucket,
+		Prefix:   cfg.ImageS3Prefix,
+		Region:   cfg.AWSRegion,
+		Endpoint: cfg.ImageS3Endpoint,
+	})
 	if err != nil {
 		return err
 	}

@@ -116,6 +116,7 @@ func TestServeImage(t *testing.T) {
 	}
 	for header, want := range map[string]string{
 		"Content-Type":            "image/png",
+		"Content-Length":          "10",
 		"ETag":                    `"abcdefghijklmnopqrstuvwx.png"`,
 		"X-Content-Type-Options":  "nosniff",
 		"Content-Security-Policy": "default-src 'none'; sandbox",

@@ -40,6 +40,10 @@ services:
       OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
       ADMIN_REDIRECT_URI: https://app.${APP_DOMAIN}/admin/auth/keycloak/callback
       ADMIN_POST_LOGOUT_URI: https://app.${APP_DOMAIN}/admin/login
+      # Photos on S3 (instance role: s3:PutObject, s3:GetObject, s3:DeleteObject
+      # and s3:ListBucket on the bucket; see docs/recipes.md).
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-s3}
+      IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:?set IMAGE_S3_BUCKET in .env}
     deploy:
       resources:
         limits:
@@ -51,6 +55,9 @@ services:
     environment:
       OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
       LOG_FORMAT: json
+      # Photos on S3 (instance role: s3:GetObject on the bucket).
+      IMAGE_STORAGE: ${IMAGE_STORAGE:-s3}
+      IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:?set IMAGE_S3_BUCKET in .env}
     deploy:
       resources:
         limits:
