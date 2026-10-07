@@ -9,7 +9,16 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-deploy/scripts/env-from-ssm.sh > .env.new && mv .env.new .env
+# Which SSM path to read: SSM_PREFIX, else /webapp/<COMPOSE_PROJECT_NAME>/
+# using the project name from the last deploy's .env (the first deploy needs
+# SSM_PREFIX or COMPOSE_PROJECT_NAME set; env-to-ssm.sh prints it).
+if [ -z "${SSM_PREFIX:-}" ] && [ -z "${COMPOSE_PROJECT_NAME:-}" ] && [ -f .env ]; then
+  COMPOSE_PROJECT_NAME=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' .env | tail -1)
+  export COMPOSE_PROJECT_NAME
+fi
+deploy/scripts/env-from-ssm.sh > .env.new
+[ -s .env.new ] || { echo "no parameters found in SSM (check SSM_PREFIX)" >&2; rm -f .env.new; exit 1; }
+mv .env.new .env
 set -a; . ./.env; set +a
 
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"

@@ -33,6 +33,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `deploy/` | `docker-compose.yml` (dev) + `docker-compose.prod.yml` (EC2), Postgres init, `keycloak/realm.json`, nginx site template, backup container, deploy/restore scripts. |
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
 | `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, photos, endpoints, web pages. |
+| `docs/ssm.md` | Production settings in SSM Parameter Store: first-time setup, changing a setting. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
 
@@ -168,7 +169,8 @@ applies to both APIs; the default includes `capacitor://localhost` and
   `deploy/nginx/render.sh`. It serves `web/dist/web/browser` from
   `/srv/www/<app>`.
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
-  with a separate password for each database role.
+  with a separate password for each database role. Setup: `docs/ssm.md`
+  (`.env.production.example`, `deploy/scripts/env-to-ssm.sh`).
 - Deploy: `IMAGE_TAG=<sha> deploy/scripts/deploy.sh` pulls from ECR, runs
   `db:migrate` as app_owner, then `up -d`.
 - Backups: `pg_dump -Fc` of `app` and `keycloak` to S3 every night, plus daily
