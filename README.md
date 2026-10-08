@@ -34,6 +34,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
 | `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, photos, endpoints, web pages. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
+| `.github/workflows/images.yml` | After CI passes on main: build the production images and push them to ECR (`docs/ecr.md`). |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
 
 ## Prerequisites
