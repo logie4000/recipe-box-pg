@@ -33,6 +33,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `deploy/` | `docker-compose.yml` (dev) + `docker-compose.prod.yml` (EC2), Postgres init, `keycloak/realm.json`, nginx site template, backup container, deploy/restore scripts. |
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
 | `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, photos, endpoints, web pages. |
+| `docs/ssm.md` | Production settings in SSM Parameter Store: first-time setup, changing a setting. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
 
@@ -164,11 +165,17 @@ applies to both APIs; the default includes `capacitor://localhost` and
   data on an EBS volume at `/srv/pgdata`), Keycloak (`start --optimized`,
   `--proxy-headers xforwarded`), read-api, write-api (Solid Queue runs inside
   Puma), and a nightly backup container.
+- Hostnames: the site at `APP_HOST` and Keycloak at `AUTH_HOST`, by default
+  `app.<APP_DOMAIN>` and `auth.<APP_DOMAIN>`. Each needs a DNS record and a
+  TLS certificate, and `oidc.authority` in `web/src/environments/environment.ts`
+  must be `https://<AUTH_HOST>/realms/app`.
 - Your nginx: render `deploy/nginx/app.conf.template` with
-  `deploy/nginx/render.sh`. It serves `web/dist/web/browser` from
+  `deploy/nginx/render.sh` (pass the same `APP_DOMAIN`, and `APP_HOST` /
+  `AUTH_HOST` if you set them). It serves `web/dist/web/browser` from
   `/srv/www/<app>`.
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
-  with a separate password for each database role.
+  with a separate password for each database role. Setup: `docs/ssm.md`
+  (`.env.production.example`, `deploy/scripts/env-to-ssm.sh`).
 - Deploy: `IMAGE_TAG=<sha> deploy/scripts/deploy.sh` pulls from ECR, runs
   `db:migrate` as app_owner, then `up -d`.
 - Recipe photos: a private, versioned S3 bucket (`IMAGE_S3_BUCKET`), read and

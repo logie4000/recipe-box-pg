@@ -43,11 +43,11 @@
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "rootUrl": "",
-      "redirectUris": ["http://localhost:4200/*", "https://app.${APP_DOMAIN}/*"],
+      "redirectUris": ["http://localhost:4200/*", "https://${APP_HOST}/*"],
       "webOrigins": ["+"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:4200/*##https://app.${APP_DOMAIN}/*"
+        "post.logout.redirect.uris": "http://localhost:4200/*##https://${APP_HOST}/*"
       },
       "protocolMappers": [
         {
@@ -94,12 +94,12 @@
       "protocol": "openid-connect",
       "redirectUris": [
         "http://localhost:3000/admin/auth/keycloak/callback",
-        "https://app.${APP_DOMAIN}/admin/auth/keycloak/callback"
+        "https://${APP_HOST}/admin/auth/keycloak/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/admin/*##https://app.${APP_DOMAIN}/admin/*"
+        "post.logout.redirect.uris": "http://localhost:3000/admin/*##https://${APP_HOST}/admin/*"
       },
       "protocolMappers": [
         {

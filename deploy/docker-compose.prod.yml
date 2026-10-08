@@ -3,6 +3,8 @@
 #   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml --env-file .env up -d
 #
 # (deploy/scripts/deploy.sh does this, running migrations first.)
+# The site is served at APP_HOST (default app.<APP_DOMAIN>) and Keycloak at
+# AUTH_HOST (default auth.<APP_DOMAIN>).
 # nginx on the host terminates TLS, serves the Angular build and proxies to
 # the 127.0.0.1 ports below; see deploy/nginx/app.conf.template.
 services:
@@ -25,7 +27,7 @@ services:
     command: ["start", "--optimized", "--import-realm"]
     volumes: !reset []
     environment:
-      KC_HOSTNAME: https://auth.${APP_DOMAIN}
+      KC_HOSTNAME: https://${AUTH_HOST:-auth.${APP_DOMAIN}}
       KC_PROXY_HEADERS: xforwarded
       KC_HTTP_ENABLED: "true"
     deploy:
@@ -37,9 +39,9 @@ services:
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-write-api:${IMAGE_TAG:-latest}
     environment:
-      OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
-      ADMIN_REDIRECT_URI: https://app.${APP_DOMAIN}/admin/auth/keycloak/callback
-      ADMIN_POST_LOGOUT_URI: https://app.${APP_DOMAIN}/admin/login
+      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/app
+      ADMIN_REDIRECT_URI: https://${APP_HOST:-app.${APP_DOMAIN}}/admin/auth/keycloak/callback
+      ADMIN_POST_LOGOUT_URI: https://${APP_HOST:-app.${APP_DOMAIN}}/admin/login
       # Photos on S3 (instance role: s3:PutObject, s3:GetObject, s3:DeleteObject
       # and s3:ListBucket on the bucket; see docs/recipes.md).
       IMAGE_STORAGE: ${IMAGE_STORAGE:-s3}
@@ -53,7 +55,7 @@ services:
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-read-api:${IMAGE_TAG:-latest}
     environment:
-      OIDC_ISSUER: https://auth.${APP_DOMAIN}/realms/app
+      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/app
       LOG_FORMAT: json
       # Photos on S3 (instance role: s3:GetObject on the bucket).
       IMAGE_STORAGE: ${IMAGE_STORAGE:-s3}
