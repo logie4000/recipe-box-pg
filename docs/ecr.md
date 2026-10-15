@@ -32,12 +32,19 @@ Replace `123456789012` with your account ID and `us-east-1` with your region.
        "Condition": {
          "StringEquals": {
            "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-           "token.actions.githubusercontent.com:sub": "repo:logie4000/recipe-box-pg:ref:refs/heads/main"
+           "token.actions.githubusercontent.com:sub": "repo:logie4000@34590917/recipe-box-pg@1403265498:ref:refs/heads/main"
          }
        }
      }]
    }
    ```
+
+   The `sub` must match what GitHub sends exactly. This repository uses
+   GitHub's immutable subject format, with the owner and repository IDs after
+   the names (they survive renames). Check the prefix with
+   `gh api repos/logie4000/recipe-box-pg/actions/oidc/customization/sub`
+   (`sub_claim_prefix`); without the immutable format it is plain
+   `repo:logie4000/recipe-box-pg`.
 
 3. **Give it ECR access only.** On the role: Add permissions > Create inline
    policy > JSON:
