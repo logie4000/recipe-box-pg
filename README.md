@@ -166,14 +166,19 @@ applies to both APIs; the default includes `capacitor://localhost` and
   data on an EBS volume at `/srv/pgdata`), Keycloak (`start --optimized`,
   `--proxy-headers xforwarded`), read-api, write-api (Solid Queue runs inside
   Puma), and a nightly backup container.
-- Hostnames: the site at `APP_HOST` and Keycloak at `AUTH_HOST`, by default
-  `app.<APP_DOMAIN>` and `auth.<APP_DOMAIN>`. Each needs a DNS record and a
-  TLS certificate, and `oidc.authority` in `web/src/environments/environment.ts`
-  must be `https://<AUTH_HOST>/realms/app`.
-- Your nginx: render `deploy/nginx/app.conf.template` with
-  `deploy/nginx/render.sh` (pass the same `APP_DOMAIN`, and `APP_HOST` /
-  `AUTH_HOST` if you set them). It serves `web/dist/web/browser` from
-  `/srv/www/<app>`.
+- Hostnames: the site at `https://<APP_HOST><APP_PATH>/` and Keycloak at
+  `AUTH_HOST`, by default `app.<APP_DOMAIN>` (no path) and `auth.<APP_DOMAIN>`.
+  Each host needs a DNS record and a TLS certificate, and `oidc.authority` in
+  `web/src/environments/environment.ts` must be `https://<AUTH_HOST>/realms/app`.
+  With `APP_PATH` (e.g. `/recipe-box`), the production `baseHref` in
+  `web/angular.json` must be the same path plus `/`; pages, `/api/v1`,
+  `/admin` and share links all move under it.
+- Your nginx: `deploy/nginx/render.sh` renders `deploy/nginx/app.conf.template`
+  and installs the app's locations as a snippet (pass the same `APP_DOMAIN`,
+  `APP_HOST`, `AUTH_HOST` and `APP_PATH`). If nginx already serves `APP_HOST`
+  for another site, use `APP_SERVER=existing` and include the snippet in that
+  site's server block. It serves `web/dist/web/browser` from
+  `/srv/www/<APP_PATH or app name>`.
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
   with a separate password for each database role. Setup: `docs/ssm.md`
   (`.env.production.example`, `deploy/scripts/env-to-ssm.sh`).

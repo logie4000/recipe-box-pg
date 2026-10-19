@@ -1,0 +1,45 @@
+# The app's locations, rendered by render.sh to
+# /etc/nginx/snippets/${APP_NAME}-locations.conf and included in the
+# ${APP_HOST} server block (ours in app.conf.template, or your existing one
+# when the app lives under a path of a site you already serve).
+#
+# Everything sits under ${APP_PATH}/ (empty at the domain root). The prefix is
+# stripped before requests reach the APIs; the write-api adds it back to its
+# links (APP_PATH, lib/middleware/path_prefix.rb).
+${APP_PATH_REDIRECT}
+# Angular build output (web/dist/web/browser), built with baseHref ${APP_PATH}/
+location ${APP_PATH}/ {
+    root ${WEB_ROOT};
+    index index.html;
+    try_files $uri $uri/ ${APP_PATH}/index.html;
+}
+
+location ~* ^${APP_PATH}/[^/]+\.(?:js|css|woff2?|svg|png|jpg|ico)$ {
+    root ${WEB_ROOT};
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+}
+
+location = ${APP_PATH}/index.html {
+    root ${WEB_ROOT};
+    add_header Cache-Control "no-cache";
+}
+
+# REST API: GET/HEAD -> Go read-api, POST/PUT/PATCH/DELETE -> Rails
+# write-api (the map in app.conf.template).
+location ^~ ${APP_PATH}/api/v1/ {
+    client_max_body_size 12m; # photos are up to 10 MB (RecipeImage::MAX_BYTES)
+    limit_req zone=${APP_NAME}_api burst=100 nodelay;
+    limit_req_status 429;
+    rewrite ^${APP_PATH}(/api/v1/.*)$ $1 break;
+    proxy_pass http://$${APP_ID}_api_upstream;
+    include /etc/nginx/snippets/${APP_NAME}-proxy.conf;
+}
+
+# Rails /admin cookie-login hook
+location ^~ ${APP_PATH}/admin {
+    rewrite ^${APP_PATH}(/admin.*)$ $1 break;
+    proxy_pass http://${APP_NAME}_write_api;
+    include /etc/nginx/snippets/${APP_NAME}-proxy.conf;
+}

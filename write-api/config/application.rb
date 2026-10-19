@@ -29,7 +29,15 @@ module WriteApi
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks generators pg_tools])
+    config.autoload_lib(ignore: %w[assets tasks generators pg_tools middleware])
+
+    # APP_PATH: the path production serves the site under (/recipe-box), or
+    # empty at the root of the domain. See lib/middleware/path_prefix.rb.
+    config.x.app_path = ENV["APP_PATH"].to_s.chomp("/")
+    if config.x.app_path.present?
+      require_relative "../lib/middleware/path_prefix"
+      config.middleware.insert_before 0, PathPrefix, config.x.app_path
+    end
 
     # API-only app: token auth for /api/v1. /admin re-adds cookies/sessions
     # below, scoped by Admin::BaseController.

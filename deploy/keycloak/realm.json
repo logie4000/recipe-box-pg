@@ -94,12 +94,12 @@
       "protocol": "openid-connect",
       "redirectUris": [
         "http://localhost:3000/admin/auth/keycloak/callback",
-        "https://${APP_HOST}/admin/auth/keycloak/callback"
+        "https://${APP_HOST}${APP_PATH:}/admin/auth/keycloak/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:3000/admin/*##https://${APP_HOST}/admin/*"
+        "post.logout.redirect.uris": "http://localhost:3000/admin/*##https://${APP_HOST}${APP_PATH:}/admin/*"
       },
       "protocolMappers": [
         {
