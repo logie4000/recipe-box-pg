@@ -173,6 +173,9 @@ applies to both APIs; the default includes `capacitor://localhost` and
   With `APP_PATH` (e.g. `/recipe-box`), the production `baseHref` in
   `web/angular.json` must be the same path plus `/`; pages, `/api/v1`,
   `/admin` and share links all move under it.
+- Ports: the containers publish on 127.0.0.1 at `READ_API_PORT` (8080),
+  `WRITE_API_PORT` (3000) and `KEYCLOAK_PORT` (8081). On a server shared with
+  other sites, pick free ones in SSM and pass the same values to `render.sh`.
 - Your nginx: `deploy/nginx/render.sh` renders `deploy/nginx/app.conf.template`
   and installs the app's locations as a snippet (pass the same `APP_DOMAIN`,
   `APP_HOST`, `AUTH_HOST` and `APP_PATH`). If nginx already serves `APP_HOST`
