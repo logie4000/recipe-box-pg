@@ -180,13 +180,15 @@ applies to both APIs; the default includes `capacitor://localhost` and
   and installs the app's locations as a snippet (pass the same `APP_DOMAIN`,
   `APP_HOST`, `AUTH_HOST` and `APP_PATH`). If nginx already serves `APP_HOST`
   for another site, use `APP_SERVER=existing` and include the snippet in that
-  site's server block. It serves `web/dist/web/browser` from
-  `/srv/www/<APP_PATH or app name>`.
+  site's server block. It serves the Angular build from
+  `/srv/www/<APP_PATH or app name>`, which `deploy.sh` fills from the `web`
+  image (the deploy user needs write access to it).
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
   with a separate password for each database role. Setup: `docs/ssm.md`
   (`.env.production.example`, `deploy/scripts/env-to-ssm.sh`).
 - Deploy: `IMAGE_TAG=<sha> deploy/scripts/deploy.sh` pulls from ECR, runs
-  `db:migrate` as app_owner, then `up -d`.
+  `db:migrate` as app_owner, `up -d`, then copies that commit's web build
+  into the web root.
 - Recipe photos: a private, versioned S3 bucket (`IMAGE_S3_BUCKET`), read and
   written with the instance role. Setup, IAM policy and moving existing photos:
   `docs/recipes.md` (Photos on S3).

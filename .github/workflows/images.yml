@@ -1,6 +1,6 @@
 name: Images
 
-# Builds the four production images and pushes them to ECR, tagged with the
+# Builds the production images (the four services plus the web build) and pushes them to ECR, tagged with the
 # commit SHA and "latest", after CI passes on main (or by hand from the
 # Actions tab). Deploy one with: IMAGE_TAG=<sha> deploy/scripts/deploy.sh
 #
@@ -41,6 +41,8 @@ jobs:
             context: deploy/keycloak
           - name: backup
             context: deploy/backup
+          - name: web # the Angular build; deploy.sh copies it to the web root
+            context: web
     env:
       SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
       REPO: ${{ vars.COMPOSE_PROJECT_NAME }}-${{ matrix.name }}
