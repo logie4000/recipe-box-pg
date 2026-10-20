@@ -23,15 +23,20 @@ login() {
 
 google_autolink() {
   local flow="first broker login - link by email"
+  local path="authentication/flows/${flow// /%20}" # the alias goes in the URL, so encode its spaces
   if ! kcadm get "authentication/flows" -r app --fields alias --format csv --noquotes | grep -qx "$flow"; then
     kcadm create authentication/flows -r app -s "alias=$flow" -s providerId=basic-flow -s topLevel=true -s builtIn=false
-    kcadm create "authentication/flows/$flow/executions/execution" -r app -s provider=idp-create-user-if-unique
-    kcadm create "authentication/flows/$flow/executions/execution" -r app -s provider=idp-auto-link
-    # both steps ALTERNATIVE: create the user, or link to the existing one with the same (verified) email
-    for id in $(kcadm get "authentication/flows/$flow/executions" -r app --fields id --format csv --noquotes); do
-      kcadm update "authentication/flows/$flow/executions" -r app -b "{\"id\":\"$id\",\"requirement\":\"ALTERNATIVE\"}"
-    done
   fi
+  # Add whichever step is missing (also repairs a flow an earlier failed run left empty).
+  local have
+  have=$(kcadm get "$path/executions" -r app --fields providerId --format csv --noquotes)
+  for provider in idp-create-user-if-unique idp-auto-link; do
+    grep -qx "$provider" <<<"$have" || kcadm create "$path/executions/execution" -r app -s "provider=$provider"
+  done
+  # both steps ALTERNATIVE: create the user, or link to the existing one with the same (verified) email
+  for id in $(kcadm get "$path/executions" -r app --fields id --format csv --noquotes); do
+    kcadm update "$path/executions" -r app -b "{\"id\":\"$id\",\"requirement\":\"ALTERNATIVE\"}"
+  done
   kcadm update identity-provider/instances/google -r app -s "firstBrokerLoginFlowAlias=$flow" -s trustEmail=true
   echo "google IdP now uses '$flow'. Enable the IdP and set its client id/secret in the admin console."
 }
