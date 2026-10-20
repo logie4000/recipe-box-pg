@@ -6,10 +6,13 @@
 #   aws ssm put-parameter --name /webapp/myapp/APP_WRITER_PASSWORD --type SecureString --value ...
 #   deploy/scripts/env-from-ssm.sh > .env
 set -euo pipefail
+# Git Bash on Windows would otherwise turn /webapp/... into a Windows path.
+export MSYS_NO_PATHCONV=1
 
 prefix="${SSM_PREFIX:-/webapp/${COMPOSE_PROJECT_NAME:-webapp}/}"
 aws ssm get-parameters-by-path --path "$prefix" --recursive --with-decryption \
   --query 'Parameters[].[Name,Value]' --output text \
+  | tr -d '\r' \
   | while IFS=$'\t' read -r name value; do
       printf '%s=%s\n' "${name##*/}" "$value"
     done

@@ -87,15 +87,21 @@ aws ssm put-parameter --name /webapp/recipe-box/RATE_LIMIT_UPLOADS_PER_MINUTE --
 Then deploy, so the containers restart with the new `.env`. To remove a
 setting: `aws ssm delete-parameter --name /webapp/recipe-box/<KEY>`.
 
-To see what's stored (names only), or get the whole `.env` back on any
-machine with access:
+To see what's stored (names only):
 
 ```bash
 aws ssm get-parameters-by-path --path /webapp/recipe-box/ --query "Parameters[].Name"
 ```
+
+To get `.env.production` back on any machine with access (your PC in Git
+Bash, or the server), from the repo root:
+
 ```bash
-SSM_PREFIX=/webapp/recipe-box/ deploy/scripts/env-from-ssm.sh
+SSM_PREFIX=/webapp/recipe-box/ deploy/scripts/env-from-ssm.sh > .env.production
 ```
+
+It writes one `KEY=value` line per parameter with secrets decrypted, without
+the template's comments.
 
 Parameter Store is the source of truth. Once uploaded, keep `.env.production`
 in a password manager or delete it.
