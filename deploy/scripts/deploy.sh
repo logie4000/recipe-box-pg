@@ -5,7 +5,10 @@
 #
 # 1. .env from SSM Parameter Store   2. pull images from ECR
 # 3. migrate as app_owner            4. restart services
-# The Angular build is copied separately to the nginx web root (see README).
+# 5. copy the web build (the <project>-web image) to the nginx web root:
+#    $WEB_DIR, default /srv/www<APP_PATH>, or /srv/www/<APP_NAME> without a
+#    path (the same place deploy/nginx/render.sh points nginx at). The deploy
+#    user needs write access to it.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -29,3 +32,17 @@ dc=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.ym
 "${dc[@]}" run --rm write-api ./bin/rails db:migrate
 "${dc[@]}" up -d --remove-orphans
 "${dc[@]}" ps
+
+# New files are copied over the old ones and index.html goes last, so a page
+# loaded before the deploy can still fetch its (differently named) old chunks.
+web_image="$ECR_REGISTRY/${COMPOSE_PROJECT_NAME:-webapp}-web:${IMAGE_TAG:-latest}"
+web_dir="${WEB_DIR:-/srv/www${APP_PATH:-/${APP_NAME:-app}}}"
+docker pull --quiet "$web_image" >/dev/null
+staging=$(mktemp -d)
+container=$(docker create "$web_image")
+trap 'docker rm -f "$container" >/dev/null 2>&1 || true; rm -rf "$staging"' EXIT
+docker cp "$container:/site/." "$staging/"
+mkdir -p "$web_dir"
+(cd "$staging" && find . -type f ! -name index.html -exec cp --parents -t "$web_dir" {} +)
+cp "$staging/index.html" "$web_dir/index.html"
+echo "web build $IMAGE_TAG installed in $web_dir"

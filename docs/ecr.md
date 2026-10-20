@@ -1,8 +1,8 @@
 # Production images in ECR
 
-`.github/workflows/images.yml` builds the four production images (write-api,
-read-api, keycloak, backup) and pushes them to Amazon ECR, tagged with the
-commit SHA and `latest`. It runs after CI passes on `main`, or by hand from
+`.github/workflows/images.yml` builds the production images (write-api,
+read-api, keycloak, backup, and `web`: the Angular build) and pushes them to
+Amazon ECR, tagged with the commit SHA and `latest`. It runs after CI passes on `main`, or by hand from
 the Actions tab (Images > Run workflow). The server pulls them in
 `deploy/scripts/deploy.sh`.
 
