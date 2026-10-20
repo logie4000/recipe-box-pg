@@ -2,6 +2,7 @@ import { EnvironmentProviders } from '@angular/core';
 import { LogLevel, provideAuth, withAppInitializerAuthCheck } from 'angular-auth-oidc-client';
 
 import { environment } from '../../environments/environment';
+import { appRoot } from './base-path';
 
 /**
  * OIDC Authorization Code + PKCE against Keycloak (public client "app-spa").
@@ -19,8 +20,8 @@ export function provideOidc(): EnvironmentProviders {
       config: {
         authority: environment.oidc.authority,
         clientId: environment.oidc.clientId,
-        redirectUrl: window.location.origin,
-        postLogoutRedirectUri: window.location.origin,
+        redirectUrl: appRoot(),
+        postLogoutRedirectUri: appRoot(),
         scope: scopes.join(' '),
         responseType: 'code',
         silentRenew: true,

@@ -19,6 +19,16 @@ RSpec.describe "/admin login hook" do
     expect(response).to redirect_to("/admin/login")
   end
 
+  it "keeps the base path in redirects and the sign-in form under APP_PATH" do
+    under_path = { "SCRIPT_NAME" => "/recipe-box" }
+
+    get "/admin", env: under_path
+    expect(response).to redirect_to("http://www.example.com/recipe-box/admin/login")
+
+    get "/admin/login", env: under_path
+    expect(response.body).to include('action="/recipe-box/admin/auth/keycloak"')
+  end
+
   it "shows who you are to admins" do
     sign_in(roles: %w[admin])
     get "/admin"

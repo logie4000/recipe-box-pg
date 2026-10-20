@@ -42,6 +42,17 @@ describe('apiInterceptor', () => {
     req.flush({});
   });
 
+  it('sends calls under the base path when the app is served under one', () => {
+    const base = document.querySelector('base') ?? document.head.appendChild(document.createElement('base'));
+    base.setAttribute('href', '/recipe-box/');
+    try {
+      http.get('/api/v1/notes').subscribe();
+      backend.expectOne('/recipe-box/api/v1/notes').flush({});
+    } finally {
+      base.setAttribute('href', '/');
+    }
+  });
+
   it('never sends the token to other hosts', () => {
     http.get('https://example.com/data').subscribe();
     const req = backend.expectOne('https://example.com/data');

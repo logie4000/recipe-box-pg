@@ -3,6 +3,7 @@ import { inject, Injectable } from '@angular/core';
 import { EMPTY, expand, map, Observable, reduce } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import { appUrl, basePath } from '../../core/base-path';
 
 /** One of the caller's own recipes (GET /api/v1/recipes, /recipes/:id). */
 export interface Recipe {
@@ -162,11 +163,11 @@ export class RecipesApi {
 
   /** Plain URL: the public photo needs no token, so an <img> can load it directly. */
   publicImageUrl(publicId: string): string {
-    return `${environment.api}/public/recipes/${publicId}/image`;
+    return `${basePath()}${environment.api}/public/recipes/${publicId}/image`;
   }
 
   /** The page anyone with the link can open (PublicRecipePage). */
   shareUrl(publicId: string): string {
-    return `${window.location.origin}/r/${publicId}`;
+    return appUrl(`/r/${publicId}`);
   }
 }

@@ -1,10 +1,11 @@
 # Site config for Rob's existing nginx. Render with only our variables so
 # nginx's own $vars survive:
 #
-#   APP_DOMAIN=example.com APP_NAME=myapp deploy/nginx/render.sh > /etc/nginx/sites-available/myapp.conf
+#   APP_DOMAIN=example.com APP_NAME=myapp deploy/nginx/render.sh > /etc/nginx/conf.d/myapp.conf
 #
-# ${APP_HOST}   Angular build + the two APIs + /admin (default app.<APP_DOMAIN>)
-# ${AUTH_HOST}  Keycloak (default auth.<APP_DOMAIN>)
+# https://${APP_HOST}${APP_PATH}/  Angular build + the two APIs + /admin
+# https://${AUTH_HOST}/            Keycloak
+# The app's locations are in locations.conf.template.
 # TLS certificates: certbot (paths below) or your own.
 
 upstream ${APP_NAME}_read_api  { server 127.0.0.1:8080; keepalive 16; }
@@ -14,7 +15,7 @@ upstream ${APP_NAME}_keycloak  { server 127.0.0.1:8081; keepalive 16; }
 # One REST URL space, /api/v1/*, split by method: reads (GET/HEAD, and CORS
 # preflights for them) go to the Go read-api, every write to the Rails
 # write-api. So non-GET requests still never reach the read-api.
-map "$request_method:$http_access_control_request_method" $${APP_NAME}_api_upstream {
+map "$request_method:$http_access_control_request_method" $${APP_ID}_api_upstream {
     default                  ${APP_NAME}_write_api;
     "~^(GET|HEAD):"          ${APP_NAME}_read_api;
     "~^OPTIONS:(GET|HEAD)?$" ${APP_NAME}_read_api;
@@ -25,9 +26,10 @@ map "$request_method:$http_access_control_request_method" $${APP_NAME}_api_upstr
 # reach either app, plus anything sent straight at a /api path.
 limit_req_zone $binary_remote_addr zone=${APP_NAME}_api:10m rate=20r/s;
 
+# --- app server: left out with APP_SERVER=existing (render.sh) ---
 server {
     listen 80;
-    server_name ${APP_HOST} ${AUTH_HOST};
+    server_name ${APP_HOST};
     return 301 https://$host$request_uri;
 }
 
@@ -43,41 +45,15 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
 
-    # Recipe photos are up to 10 MB (RecipeImage::MAX_BYTES), plus multipart overhead.
-    client_max_body_size 12m;
+    # The app: Angular build, the two APIs, /admin (locations.conf.template)
+    include /etc/nginx/snippets/${APP_NAME}-locations.conf;
+}
+# --- end app server ---
 
-    # Angular build output (web/dist/web/browser)
-    root /srv/www/${APP_NAME};
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location ~* \.(?:js|css|woff2?|svg|png|jpg|ico)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        try_files $uri =404;
-    }
-
-    location = /index.html {
-        add_header Cache-Control "no-cache";
-    }
-
-    # REST API: GET/HEAD -> Go read-api, POST/PUT/PATCH/DELETE -> Rails
-    # write-api (see the map above).
-    location /api/v1/ {
-        limit_req zone=${APP_NAME}_api burst=100 nodelay;
-        limit_req_status 429;
-        proxy_pass http://$${APP_NAME}_api_upstream;
-        include /etc/nginx/snippets/${APP_NAME}-proxy.conf;
-    }
-
-    # Rails /admin cookie-login hook (and any admin UI mounted later)
-    location /admin {
-        proxy_pass http://${APP_NAME}_write_api;
-        include /etc/nginx/snippets/${APP_NAME}-proxy.conf;
-    }
+server {
+    listen 80;
+    server_name ${AUTH_HOST};
+    return 301 https://$host$request_uri;
 }
 
 server {
