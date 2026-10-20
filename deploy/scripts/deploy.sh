@@ -3,6 +3,9 @@
 #
 #   IMAGE_TAG=<git sha> deploy/scripts/deploy.sh
 #
+# The tag is a full commit SHA from main that the Images workflow built (its
+# run summary lists them), or omit IMAGE_TAG for the newest build ("latest").
+#
 # 1. .env from SSM Parameter Store   2. pull images from ECR
 # 3. migrate as app_owner            4. restart services
 # 5. copy the web build (the <project>-web image) to the nginx web root:
@@ -22,7 +25,11 @@ fi
 deploy/scripts/env-from-ssm.sh > .env.new
 [ -s .env.new ] || { echo "no parameters found in SSM (check SSM_PREFIX)" >&2; rm -f .env.new; exit 1; }
 mv .env.new .env
+# The tag asked for on the command line wins over any IMAGE_TAG in SSM.
+requested_tag="${IMAGE_TAG:-}"
 set -a; . ./.env; set +a
+export IMAGE_TAG="${requested_tag:-${IMAGE_TAG:-latest}}"
+echo "deploying images tagged $IMAGE_TAG"
 
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
