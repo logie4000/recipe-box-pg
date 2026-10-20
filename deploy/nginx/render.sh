@@ -10,6 +10,9 @@
 # APP_SERVER=existing  APP_HOST is a site your nginx already serves: leave out
 #                      our server block for it and add this line to yours:
 #                        include /etc/nginx/snippets/<APP_NAME>-locations.conf;
+# READ_API_PORT, WRITE_API_PORT, KEYCLOAK_PORT
+#                      the host ports the containers publish (default 8080,
+#                      3000, 8081; set the same values in SSM)
 # WEB_ROOT             nginx root for the Angular build; files must be at
 #                      $WEB_ROOT$APP_PATH/ (default /srv/www, or
 #                      /srv/www/$APP_NAME without APP_PATH)
@@ -18,6 +21,7 @@ set -euo pipefail
 APP_PATH="${APP_PATH%/}"
 case "$APP_PATH" in ""|/*) ;; *) echo "APP_PATH must start with /" >&2; exit 2 ;; esac
 export APP_NAME APP_PATH
+export READ_API_PORT="${READ_API_PORT:-8080}" WRITE_API_PORT="${WRITE_API_PORT:-3000}" KEYCLOAK_PORT="${KEYCLOAK_PORT:-8081}"
 export APP_HOST="${APP_HOST:-app.$APP_DOMAIN}" AUTH_HOST="${AUTH_HOST:-auth.$APP_DOMAIN}"
 # nginx variable names can't contain "-" (APP_NAME=recipe-box).
 export APP_ID="${APP_NAME//[^A-Za-z0-9_]/_}"
@@ -28,7 +32,7 @@ else
   export WEB_ROOT="${WEB_ROOT:-/srv/www/$APP_NAME}"
   export APP_PATH_REDIRECT=""
 fi
-vars='${APP_DOMAIN} ${APP_NAME} ${APP_ID} ${APP_HOST} ${AUTH_HOST} ${APP_PATH} ${APP_PATH_REDIRECT} ${WEB_ROOT}'
+vars='${APP_DOMAIN} ${APP_NAME} ${APP_ID} ${APP_HOST} ${AUTH_HOST} ${APP_PATH} ${APP_PATH_REDIRECT} ${WEB_ROOT} ${READ_API_PORT} ${WRITE_API_PORT} ${KEYCLOAK_PORT}'
 
 here="$(cd "$(dirname "$0")" && pwd)"
 snippets="${NGINX_SNIPPETS_DIR:-/etc/nginx/snippets}"

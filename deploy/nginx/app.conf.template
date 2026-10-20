@@ -8,9 +8,12 @@
 # The app's locations are in locations.conf.template.
 # TLS certificates: certbot (paths below) or your own.
 
-upstream ${APP_NAME}_read_api  { server 127.0.0.1:8080; keepalive 16; }
-upstream ${APP_NAME}_write_api { server 127.0.0.1:3000; keepalive 16; }
-upstream ${APP_NAME}_keycloak  { server 127.0.0.1:8081; keepalive 16; }
+# Ports published by deploy/docker-compose.yml (READ_API_PORT, WRITE_API_PORT,
+# KEYCLOAK_PORT). Names are prefixed with the app's, so other sites' configs
+# on the same nginx don't clash.
+upstream ${APP_NAME}_read_api  { server 127.0.0.1:${READ_API_PORT}; keepalive 16; }
+upstream ${APP_NAME}_write_api { server 127.0.0.1:${WRITE_API_PORT}; keepalive 16; }
+upstream ${APP_NAME}_keycloak  { server 127.0.0.1:${KEYCLOAK_PORT}; keepalive 16; }
 
 # One REST URL space, /api/v1/*, split by method: reads (GET/HEAD, and CORS
 # preflights for them) go to the Go read-api, every write to the Rails
