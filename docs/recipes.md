@@ -223,6 +223,6 @@ chosen recipes are saved through `POST /api/v1/recipes`, private and without
 a photo. `/recipes/export` downloads the recipes you tick as a Recipe Box
 file, `{format: "recipe-box", version: 1, recipes: [{title, ingredients, directions, notes}]}`.
 
-To move recipes from the original Recipe Box (teapothill.org), which has no
+To move recipes from the original Recipe Box (specialbrew.net), which has no
 export of its own, run `node tools/old-recipe-box-export.mjs [API_BASE]` and
 import the file it writes. See the script for the API_BASE to use.

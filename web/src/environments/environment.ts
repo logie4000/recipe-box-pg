@@ -6,7 +6,7 @@ export const environment: AppEnvironment = {
   production: true,
   clientVersion: '0.1.0',
   oidc: {
-    authority: 'https://auth.teapothill.org/realms/app',
+    authority: 'https://auth.specialbrew.net/realms/app',
     clientId: 'app-spa',
   },
   // Same origin behind nginx, which splits /api/v1 by method: GET -> Go

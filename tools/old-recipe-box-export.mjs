@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Exports every recipe from the original Recipe Box (teapothill.org) into a
+// Exports every recipe from the original Recipe Box (specialbrew.net) into a
 // Recipe Box export file, ready for the Import page (/recipes/import).
 //
 //   node tools/old-recipe-box-export.mjs [API_BASE] [OUT_FILE]
@@ -16,7 +16,7 @@
 
 import { writeFile } from 'node:fs/promises';
 
-const base = (process.argv[2] ?? 'https://www.teapothill.org/recipe-box/api').replace(/\/+$/, '');
+const base = (process.argv[2] ?? 'https://www.specialbrew.net/recipe-box/api').replace(/\/+$/, '');
 const out = process.argv[3] ?? 'old-recipe-box.json';
 
 async function get(path) {
