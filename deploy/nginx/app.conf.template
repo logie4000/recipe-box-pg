@@ -4,7 +4,8 @@
 #   APP_DOMAIN=example.com APP_NAME=myapp deploy/nginx/render.sh > /etc/nginx/conf.d/myapp.conf
 #
 # https://${APP_HOST}${APP_PATH}/  Angular build + the two APIs + /admin
-# https://${AUTH_HOST}/            Keycloak
+# https://${AUTH_HOST}/            Keycloak (left out with AUTH_SERVER=existing: on Denali
+#                                  specialbrew-infra-core serves it)
 # The app's locations are in locations.conf.template.
 # TLS certificates: certbot (paths below) or your own.
 
@@ -13,7 +14,9 @@
 # on the same nginx don't clash.
 upstream ${APP_NAME}_read_api  { server 127.0.0.1:${READ_API_PORT}; keepalive 16; }
 upstream ${APP_NAME}_write_api { server 127.0.0.1:${WRITE_API_PORT}; keepalive 16; }
+# --- auth server: left out with AUTH_SERVER=existing (render.sh) ---
 upstream ${APP_NAME}_keycloak  { server 127.0.0.1:${KEYCLOAK_PORT}; keepalive 16; }
+# --- end auth server ---
 
 # One REST URL space, /api/v1/*, split by method: reads (GET/HEAD, and CORS
 # preflights for them) go to the Go read-api, every write to the Rails
@@ -53,6 +56,7 @@ server {
 }
 # --- end app server ---
 
+# --- auth server: left out with AUTH_SERVER=existing (render.sh) ---
 server {
     listen 80;
     server_name ${AUTH_HOST};
@@ -80,3 +84,4 @@ server {
         proxy_busy_buffers_size 256k;
     }
 }
+# --- end auth server ---

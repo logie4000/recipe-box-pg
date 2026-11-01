@@ -9,14 +9,28 @@
 # Uses kcadm.sh inside the running keycloak container.
 set -euo pipefail
 
+# On a host where Keycloak belongs to another compose project (PLATFORM_PROJECT
+# in .env, e.g. infra-core on Denali), it runs there instead, signing in with
+# KC_BOOTSTRAP_ADMIN_* from .env.
 here="$(cd "$(dirname "$0")" && pwd)"
 compose=(docker compose -f "$here/../docker-compose.yml")
 [ -f "$here/../../.env" ] && compose+=(--env-file "$here/../../.env")
+platform=$(sed -n 's/^PLATFORM_PROJECT=//p' "$here/../../.env" 2>/dev/null | tail -1)
 
-kcadm() { "${compose[@]}" exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"; }
+if [ -n "$platform" ]; then
+  kc=$(docker ps -q --filter "label=com.docker.compose.project=$platform" --filter label=com.docker.compose.service=keycloak | head -1)
+  [ -n "$kc" ] || { echo "no running keycloak container in compose project $platform" >&2; exit 1; }
+  admin_user=$(sed -n 's/^KC_BOOTSTRAP_ADMIN_USERNAME=//p' "$here/../../.env" | tail -1)
+  admin_pw=$(sed -n 's/^KC_BOOTSTRAP_ADMIN_PASSWORD=//p' "$here/../../.env" | tail -1)
+  kc_exec() { docker exec -i -e KC_BOOTSTRAP_ADMIN_USERNAME="${admin_user:-admin}" -e KC_BOOTSTRAP_ADMIN_PASSWORD="$admin_pw" "$kc" "$@"; }
+else
+  kc_exec() { "${compose[@]}" exec -T keycloak "$@"; }
+fi
+
+kcadm() { kc_exec /opt/keycloak/bin/kcadm.sh "$@"; }
 
 login() {
-  "${compose[@]}" exec -T keycloak sh -c \
+  kc_exec sh -c \
     '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"' \
     >/dev/null
 }
