@@ -10,6 +10,9 @@
 # APP_SERVER=existing  APP_HOST is a site your nginx already serves: leave out
 #                      our server block for it and add this line to yours:
 #                        include /etc/nginx/snippets/<APP_NAME>-locations.conf;
+# AUTH_SERVER=existing AUTH_HOST is a Keycloak another config already serves
+#                      (on Denali: specialbrew-infra-core's nginx/): leave out
+#                      our auth server block and Keycloak upstream.
 # READ_API_PORT, WRITE_API_PORT, KEYCLOAK_PORT
 #                      the host ports the containers publish (default 8080,
 #                      3000, 8081; set the same values in SSM)
@@ -46,9 +49,12 @@ else
   exit 1
 fi
 
+template=$(cat "$here/app.conf.template")
 if [ "${APP_SERVER:-}" = existing ]; then
-  sed '/^# --- app server/,/^# --- end app server ---/d' "$here/app.conf.template" | envsubst "$vars"
+  template=$(sed '/^# --- app server/,/^# --- end app server ---/d' <<<"$template")
   echo "add to your ${APP_HOST} server block: include $snippets/${APP_NAME}-locations.conf;" >&2
-else
-  envsubst "$vars" < "$here/app.conf.template"
 fi
+if [ "${AUTH_SERVER:-}" = existing ]; then
+  template=$(sed '/^# --- auth server/,/^# --- end auth server ---/d' <<<"$template")
+fi
+envsubst "$vars" <<<"$template"

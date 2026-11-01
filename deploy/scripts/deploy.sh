@@ -7,6 +7,9 @@
 # run summary lists them), or omit IMAGE_TAG for the newest build ("latest").
 #
 # 1. .env from SSM Parameter Store   2. pull images from ECR
+#    (with PLATFORM_PROJECT set: Postgres and Keycloak are that project's,
+#    on Denali specialbrew-infra-core's; this app's database, roles and realm
+#    are checked there first, deploy/scripts/shared-platform.sh)
 # 3. migrate as app_owner            4. restart services
 # 5. copy the web build (the <project>-web image) to the nginx web root:
 #    $WEB_DIR, default /srv/www<APP_PATH>, or /srv/www/<APP_NAME> without a
@@ -33,9 +36,17 @@ echo "deploying images tagged $IMAGE_TAG"
 
 aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
-dc=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml --env-file .env)
-"${dc[@]}" pull write-api read-api keycloak backup
-"${dc[@]}" up -d postgres
+dc=(docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml)
+if [ -n "${PLATFORM_PROJECT:-}" ]; then
+  # Postgres and Keycloak are PLATFORM_PROJECT's (docker-compose.shared.yml).
+  dc+=(-f deploy/docker-compose.shared.yml --env-file .env)
+  deploy/scripts/shared-platform.sh
+  "${dc[@]}" pull write-api read-api backup
+else
+  dc+=(--env-file .env)
+  "${dc[@]}" pull write-api read-api keycloak backup
+  "${dc[@]}" up -d postgres
+fi
 "${dc[@]}" run --rm write-api ./bin/rails db:migrate
 "${dc[@]}" up -d --remove-orphans
 "${dc[@]}" ps

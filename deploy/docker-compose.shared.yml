@@ -1,0 +1,37 @@
+# Shared-platform overlay: Postgres and Keycloak belong to another compose
+# project on the same host (on Denali: specialbrew-infra-core's "infra-core"),
+# so this project starts neither and joins that project's network instead,
+# where "postgres" and "keycloak" resolve to its containers. Add it after the
+# prod overlay:
+#
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml \
+#     -f deploy/docker-compose.shared.yml --env-file .env up -d
+#
+# (deploy/scripts/deploy.sh does this when PLATFORM_PROJECT is set.) The app's
+# database, roles and realm there are checked by deploy/scripts/shared-platform.sh.
+services:
+  postgres:
+    profiles: ["own-platform"]
+
+  keycloak:
+    profiles: ["own-platform"]
+
+  write-api:
+    depends_on: !reset {}
+    networks: [default, platform]
+
+  read-api:
+    depends_on: !reset {}
+    networks: [default, platform]
+
+  # This app's database only; infra-core backs up keycloak and the roles.
+  backup:
+    depends_on: !reset {}
+    networks: [default, platform]
+    environment:
+      BACKUP_DATABASES: ${APP_DB_NAME:-app}
+
+networks:
+  platform:
+    name: ${PLATFORM_NETWORK:-infra-core}
+    external: true

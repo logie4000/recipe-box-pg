@@ -166,6 +166,19 @@ applies to both APIs; the default includes `capacitor://localhost` and
   data on an EBS volume at `/srv/pgdata`), Keycloak (`start --optimized`,
   `--proxy-headers xforwarded`), read-api, write-api (Solid Queue runs inside
   Puma), and a nightly backup container.
+- **On Denali, Postgres and Keycloak are shared** with the other sites and
+  run from [specialbrew-infra-core](https://github.com/logie4000/specialbrew-infra-core)
+  (compose project and network `infra-core`, Keycloak at
+  `https://auth.specialbrew.net`). With `PLATFORM_PROJECT=infra-core` and
+  `PLATFORM_NETWORK=infra-core` in SSM, `deploy.sh` adds
+  `deploy/docker-compose.shared.yml`: this app starts only its APIs and
+  backup (of `app` only), joins that network, and runs
+  `deploy/scripts/shared-platform.sh`, which makes sure the `app` database,
+  its owner/platform roles and realm `app` exist there (it never changes an
+  existing realm). `deploy/keycloak/configure.sh` runs against the shared
+  Keycloak too. Render nginx with `APP_SERVER=existing AUTH_SERVER=existing`;
+  infra-core serves the auth host. Without `PLATFORM_PROJECT`, the app runs
+  its own Postgres and Keycloak as below.
 - Hostnames: the site at `https://<APP_HOST><APP_PATH>/` and Keycloak at
   `AUTH_HOST`, by default `app.<APP_DOMAIN>` (no path) and `auth.<APP_DOMAIN>`.
   Each host needs a DNS record and a TLS certificate, and `oidc.authority` in
@@ -180,7 +193,8 @@ applies to both APIs; the default includes `capacitor://localhost` and
   and installs the app's locations as a snippet (pass the same `APP_DOMAIN`,
   `APP_HOST`, `AUTH_HOST` and `APP_PATH`). If nginx already serves `APP_HOST`
   for another site, use `APP_SERVER=existing` and include the snippet in that
-  site's server block. It serves the Angular build from
+  site's server block, and `AUTH_SERVER=existing` when another config
+  already serves `AUTH_HOST` (a shared Keycloak). It serves the Angular build from
   `/srv/www/<APP_PATH or app name>`, which `deploy.sh` fills from the `web`
   image (the deploy user needs write access to it).
 - Secrets: SSM Parameter Store to `.env` (`deploy/scripts/env-from-ssm.sh`),
