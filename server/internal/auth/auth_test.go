@@ -116,12 +116,12 @@ func TestRequireMiddleware(t *testing.T) {
 	}))
 
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/notes", nil))
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/recipes", nil))
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no token: got %d", rec.Code)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/notes", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/recipes", nil)
 	req.Header.Set("Authorization", "Bearer "+idp.token(t, nil))
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

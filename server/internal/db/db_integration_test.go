@@ -64,8 +64,6 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"ALTER ROLE app_reader SET default_transaction_read_only = on",
 		"GRANT USAGE ON SCHEMA public TO app_reader",
 		"GRANT SELECT ON ALL TABLES IN SCHEMA public TO app_reader",
-		"INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('hello', '', 'seed', now(), now())",
-		"INSERT INTO private_notes (owner_sub, body, created_at, updated_at) VALUES ('alice', 'a', now(), now()), ('bob', 'b', now(), now())",
 		"INSERT INTO recipes (id, public_id, owner_sub, title, ingredients, directions, is_public, image_key, created_at, updated_at) VALUES " +
 			"(1, '" + pancakesPublicID + "', 'alice', 'Pancakes', '{2 eggs,milk}', '{Whisk,Fry}', false, '" + pancakesImage + "', now(), now()), " +
 			"(2, '" + soupPublicID + "', 'alice', 'Soup', '{}', '{}', true, '" + soupImage + "', now(), now()), " +
@@ -87,24 +85,8 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 	}
 	defer pool.Close()
 
-	t.Run("reads work", func(t *testing.T) {
-		err := ReadTx(ctx, pool, RequestContext{UserID: "alice"}, func(q *sqlc.Queries) error {
-			notes, err := q.ListNotes(ctx, sqlc.ListNotesParams{PageLimit: 10})
-			if err != nil {
-				return err
-			}
-			if len(notes) != 1 || notes[0].Title != "hello" {
-				return fmt.Errorf("notes = %+v", notes)
-			}
-			return nil
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-	})
-
 	t.Run("writes are refused", func(t *testing.T) {
-		_, err := pool.Exec(ctx, "INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('x', '', 'x', now(), now())")
+		_, err := pool.Exec(ctx, "INSERT INTO recipes (public_id, owner_sub, title, created_at, updated_at) VALUES ('Writes000001', 'x', 'x', now(), now())")
 		if err == nil {
 			t.Fatal("insert succeeded as app_reader")
 		}
@@ -112,24 +94,6 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 
 	testRecipes(ctx, t, pool)
 	testSavedRecipes(ctx, t, pool)
-
-	t.Run("RLS limits private notes to the caller", func(t *testing.T) {
-		for user, want := range map[string]int{"alice": 1, "bob": 1, "": 0} {
-			err := ReadTx(ctx, pool, RequestContext{UserID: user}, func(q *sqlc.Queries) error {
-				rows, err := q.ListPrivateNotes(ctx)
-				if err != nil {
-					return err
-				}
-				if len(rows) != want {
-					return fmt.Errorf("user %q saw %d rows, want %d", user, len(rows), want)
-				}
-				return nil
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	})
 }
 
 const (

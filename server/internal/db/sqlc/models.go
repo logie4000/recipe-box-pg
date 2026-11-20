@@ -3,16 +3,3 @@
 //   sqlc v1.30.0
 
 package sqlc
-
-import (
-	"time"
-)
-
-type Note struct {
-	ID        int64     `json:"id"`
-	Title     string    `json:"title"`
-	Body      string    `json:"body"`
-	AuthorSub string    `json:"author_sub"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}

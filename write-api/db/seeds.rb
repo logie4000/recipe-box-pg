@@ -10,26 +10,9 @@ TENANTS = [
   { id: "22222222-2222-4222-8222-222222222222", name: "Globex", slug: "globex" }
 ].freeze
 
-SEED_AUTHOR = "seed"
-
-def seed_notes(prefix)
-  [
-    { title: "#{prefix}Welcome", body: "This note came from db/seeds.rb and is served by the Go read-api." },
-    { title: "#{prefix}How writes work", body: "The Angular form POSTs to /api/v1/notes (served by Rails), then re-reads it with GET (served by Go)." }
-  ].each do |attrs|
-    Note.find_or_create_by!(title: attrs[:title]) do |note|
-      note.body = attrs[:body]
-      note.author_sub = SEED_AUTHOR
-    end
-  end
-end
-
 if Tenancy.enabled?
   TENANTS.each do |attrs|
     tenant = Tenant.find_or_initialize_by(id: attrs[:id])
     tenant.update!(attrs.merge(status: "active"))
-    DbContext.with(tenant: tenant) { seed_notes("[#{tenant.slug}] ") }
   end
-else
-  seed_notes("")
 end

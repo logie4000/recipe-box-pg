@@ -7,8 +7,6 @@ Rails.application.routes.draw do
   # the Go read-api. So this app defines no GET routes under /api.
   namespace :api do
     namespace :v1 do
-      resources :notes, only: %i[create update destroy]
-      resources :private_notes, only: %i[create destroy]
       resources :recipes, only: %i[create update destroy] do
         resource :image, only: %i[update destroy], controller: "recipe_images"
       end

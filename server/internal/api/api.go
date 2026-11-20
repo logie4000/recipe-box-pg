@@ -57,9 +57,6 @@ func (s *Server) Routes() http.Handler {
 		return s.Verifier.Require(s.Tenants.Middleware(h))
 	}
 	mux.Handle("GET /api/v1/me", protected(s.me))
-	mux.Handle("GET /api/v1/notes", protected(s.listNotes))
-	mux.Handle("GET /api/v1/notes/{id}", protected(s.getNote))
-	mux.Handle("GET /api/v1/private-notes", protected(s.listPrivateNotes))
 	mux.Handle("GET /api/v1/recipes", protected(s.listRecipes))
 	mux.Handle("GET /api/v1/recipes/{id}", protected(s.getRecipe))
 	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
@@ -113,61 +110,6 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 		"organizations": u.Organizations,
 		"tenant_id":     auth.TenantFrom(r.Context()),
 	})
-}
-
-func (s *Server) listNotes(w http.ResponseWriter, r *http.Request) {
-	limit := queryInt(r, "limit", 20, 1, 100)
-	offset := queryInt(r, "offset", 0, 0, 1_000_000)
-
-	var (
-		items []sqlc.Note
-		total int64
-	)
-	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
-		var err error
-		if items, err = q.ListNotes(r.Context(), sqlc.ListNotesParams{PageLimit: int32(limit), PageOffset: int32(offset)}); err != nil {
-			return err
-		}
-		total, err = q.CountNotes(r.Context())
-		return err
-	})
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items, "total": total, "limit": limit, "offset": offset})
-}
-
-func (s *Server) getNote(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "bad_request", "id must be an integer")
-		return
-	}
-	var note sqlc.Note
-	err = db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
-		note, err = q.GetNote(r.Context(), id)
-		return err
-	})
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, note)
-}
-
-func (s *Server) listPrivateNotes(w http.ResponseWriter, r *http.Request) {
-	var items []sqlc.ListPrivateNotesRow
-	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
-		var err error
-		items, err = q.ListPrivateNotes(r.Context())
-		return err
-	})
-	if err != nil {
-		s.dbError(w, err)
-		return
-	}
-	httpx.JSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 // The caller's own collection: the queries filter on owner_sub, and RLS hides
