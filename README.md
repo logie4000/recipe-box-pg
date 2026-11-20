@@ -16,7 +16,7 @@ nginx ─┬─ /                          Angular static files
                                      (migrations run as app_owner, deploy step only)
 ```
 
-One REST URL space: `/api/v1/notes/7` is read with GET (Go) and changed with
+One REST URL space: `/api/v1/recipes/7` is read with GET (Go) and changed with
 PATCH or DELETE (Rails). nginx picks the service by HTTP method, and so does
 `web/proxy.conf.mjs` under `ng serve`.
 
@@ -27,7 +27,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 
 | Path | What |
 |---|---|
-| `web/` | Angular 21 (standalone, signals). `src/app/core/`: OIDC config, interceptor, guards. `src/app/features/notes/`: list via read-api, form via write-api. `proxy.conf.mjs` for `ng serve` (routes `/api/v1` by method, like nginx). |
+| `web/` | Angular 21 (standalone, signals). `src/app/core/`: OIDC config, interceptor, guards. `src/app/features/recipes/`: lists via read-api, forms via write-api. `proxy.conf.mjs` for `ng serve` (routes `/api/v1` by method, like nginx). |
 | `server/` | Go read-api. `cmd/read-api/`, `internal/auth/` (JWT + tenant), `internal/db/` (pgx pool, `ReadTx`, generated sqlc), `internal/httpx/` (JSON, CORS, logging), `internal/api/` (routes), `queries/` (sqlc SELECTs). |
 | `write-api/` | Rails 8 API app. JWT concern, Pundit policies, migrations, `db/structure.sql`, seeds, admin login hook. See `write-api/README.md`. |
 | `deploy/` | `docker-compose.yml` (dev) + `docker-compose.prod.yml` (EC2), Postgres init, `keycloak/realm.json`, nginx site template, backup container, deploy/restore scripts. |
@@ -75,8 +75,8 @@ for development only.
 
 | User | Realm roles | Can |
 |---|---|---|
-| `alice` | reader | read notes |
-| `editor` | editor (includes reader) | create, edit and delete notes |
+| `alice` | reader | keep, share and save recipes |
+| `editor` | editor (includes reader) | the same (no extra rights in Recipe Box) |
 | `admin` | admin (includes editor, reader) | all of that, and open `/admin` |
 | `bob`, `carol` | editor | tenant demo (bob: globex, carol: acme + globex, alice: acme) |
 
@@ -118,7 +118,7 @@ Postgres with testcontainers. It skips itself when Docker isn't running.
 4. **Tokens:** signature (JWKS, cached, refetched on unknown `kid`), `iss`,
    `aud=app-api` and `exp` are all verified.
 5. **Row-level security (optional):** every request transaction sets
-   `app.user_id` (and `app.tenant_id`). The `private_notes` table is the example.
+   `app.user_id` (and `app.tenant_id`). The `recipes` table is the example.
 
 ## Schema changes
 
@@ -217,5 +217,5 @@ applies to both APIs; the default includes `capacitor://localhost` and
 1. Create a repo from this template.
 2. Set `COMPOSE_PROJECT_NAME`, `APP_NAME` and `APP_DOMAIN` in `.env`, and the
    production `oidc.authority` in `web/src/environments/environment.ts`.
-3. Replace the notes example with your own resources, keeping the patterns.
+3. Add your own resources, following the `recipes` patterns.
 4. Optional: `docs/multi-tenancy.md`.

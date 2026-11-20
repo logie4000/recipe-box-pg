@@ -12,7 +12,7 @@ func TestCORS(t *testing.T) {
 	}))
 
 	t.Run("allowed origin gets headers", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/notes", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/recipes", nil)
 		req.Header.Set("Origin", "capacitor://localhost")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -22,7 +22,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	t.Run("unknown origin gets nothing", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/notes", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/recipes", nil)
 		req.Header.Set("Origin", "https://evil.example")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -32,7 +32,7 @@ func TestCORS(t *testing.T) {
 	})
 
 	t.Run("preflight answered", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodOptions, "/api/v1/notes", nil)
+		req := httptest.NewRequest(http.MethodOptions, "/api/v1/recipes", nil)
 		req.Header.Set("Origin", "http://localhost:4200")
 		req.Header.Set("Access-Control-Request-Method", "GET")
 		rec := httptest.NewRecorder()

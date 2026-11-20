@@ -26,8 +26,8 @@ describe('apiInterceptor', () => {
   afterEach(() => backend.verify());
 
   it('adds the bearer token and client version to read-api calls', () => {
-    http.get('/api/v1/notes').subscribe();
-    const req = backend.expectOne('/api/v1/notes');
+    http.get('/api/v1/recipes').subscribe();
+    const req = backend.expectOne('/api/v1/recipes');
     expect(req.request.headers.get('Authorization')).toBe('Bearer tok123');
     expect(req.request.headers.get('X-Client-Version')).toBeTruthy();
     expect(req.request.headers.has('X-Tenant-Id')).toBe(false);
@@ -36,8 +36,8 @@ describe('apiInterceptor', () => {
 
   it('adds the tenant header to write-api calls when a tenant is selected', () => {
     TestBed.inject(TenantService).select('11111111-1111-4111-8111-111111111111');
-    http.post('/api/v1/notes', {}).subscribe();
-    const req = backend.expectOne('/api/v1/notes');
+    http.post('/api/v1/recipes', {}).subscribe();
+    const req = backend.expectOne('/api/v1/recipes');
     expect(req.request.headers.get('X-Tenant-Id')).toBe('11111111-1111-4111-8111-111111111111');
     req.flush({});
   });
@@ -46,8 +46,8 @@ describe('apiInterceptor', () => {
     const base = document.querySelector('base') ?? document.head.appendChild(document.createElement('base'));
     base.setAttribute('href', '/recipe-box/');
     try {
-      http.get('/api/v1/notes').subscribe();
-      backend.expectOne('/recipe-box/api/v1/notes').flush({});
+      http.get('/api/v1/recipes').subscribe();
+      backend.expectOne('/recipe-box/api/v1/recipes').flush({});
     } finally {
       base.setAttribute('href', '/');
     }

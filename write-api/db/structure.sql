@@ -61,73 +61,6 @@ CREATE TABLE public.ar_internal_metadata (
 
 
 --
--- Name: notes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.notes (
-    id bigint NOT NULL,
-    title character varying NOT NULL,
-    body text DEFAULT ''::text NOT NULL,
-    author_sub character varying NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-
---
--- Name: notes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.notes_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: notes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.notes_id_seq OWNED BY public.notes.id;
-
-
---
--- Name: private_notes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.private_notes (
-    id bigint NOT NULL,
-    owner_sub character varying NOT NULL,
-    body text NOT NULL,
-    created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
-);
-
-ALTER TABLE ONLY public.private_notes FORCE ROW LEVEL SECURITY;
-
-
---
--- Name: private_notes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.private_notes_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: private_notes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.private_notes_id_seq OWNED BY public.private_notes.id;
-
-
---
 -- Name: recipes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -662,20 +595,6 @@ ALTER TABLE ONLY public.account_requests ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
--- Name: notes id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notes ALTER COLUMN id SET DEFAULT nextval('public.notes_id_seq'::regclass);
-
-
---
--- Name: private_notes id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.private_notes ALTER COLUMN id SET DEFAULT nextval('public.private_notes_id_seq'::regclass);
-
-
---
 -- Name: recipes id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -794,22 +713,6 @@ ALTER TABLE ONLY public.account_requests
 
 ALTER TABLE ONLY public.ar_internal_metadata
     ADD CONSTRAINT ar_internal_metadata_pkey PRIMARY KEY (key);
-
-
---
--- Name: notes notes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.notes
-    ADD CONSTRAINT notes_pkey PRIMARY KEY (id);
-
-
---
--- Name: private_notes private_notes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.private_notes
-    ADD CONSTRAINT private_notes_pkey PRIMARY KEY (id);
 
 
 --
@@ -945,20 +848,6 @@ ALTER TABLE ONLY public.solid_queue_semaphores
 --
 
 CREATE UNIQUE INDEX index_account_requests_on_user_sub ON public.account_requests USING btree (user_sub);
-
-
---
--- Name: index_notes_on_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_notes_on_created_at ON public.notes USING btree (created_at);
-
-
---
--- Name: index_private_notes_on_owner_sub_and_created_at; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX index_private_notes_on_owner_sub_and_created_at ON public.private_notes USING btree (owner_sub, created_at);
 
 
 --
@@ -1306,19 +1195,6 @@ CREATE POLICY account_requests_own ON public.account_requests USING (((user_sub)
 
 
 --
--- Name: private_notes; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.private_notes ENABLE ROW LEVEL SECURITY;
-
---
--- Name: private_notes private_notes_owner; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY private_notes_owner ON public.private_notes USING (((owner_sub)::text = current_setting('app.user_id'::text, true))) WITH CHECK (((owner_sub)::text = current_setting('app.user_id'::text, true)));
-
-
---
 -- Name: recipes; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1358,6 +1234,7 @@ CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::te
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261120150000'),
 ('20261006170000'),
 ('20261006150000'),
 ('20261005150000'),

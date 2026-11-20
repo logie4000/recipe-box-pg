@@ -42,7 +42,7 @@ func TestTenantResolver(t *testing.T) {
 			h := TenantResolver{Enabled: true, Subdomains: tc.subdomains}.Middleware(
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = TenantFrom(r.Context()) }),
 			)
-			req := httptest.NewRequest(http.MethodGet, "/api/v1/notes", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/recipes", nil)
 			req.Host = tc.host
 			if tc.header != "" {
 				req.Header.Set("X-Tenant-Id", tc.header)

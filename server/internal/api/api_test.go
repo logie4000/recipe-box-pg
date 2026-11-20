@@ -32,9 +32,9 @@ func TestOnlyGETIsRouted(t *testing.T) {
 	h := testServer()
 	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
 		rec := httptest.NewRecorder()
-		h.ServeHTTP(rec, httptest.NewRequest(method, "/api/v1/notes", nil))
+		h.ServeHTTP(rec, httptest.NewRequest(method, "/api/v1/recipes", nil))
 		if rec.Code != http.StatusMethodNotAllowed {
-			t.Errorf("%s /api/v1/notes = %d, want 405", method, rec.Code)
+			t.Errorf("%s /api/v1/recipes = %d, want 405", method, rec.Code)
 		}
 	}
 }
@@ -52,7 +52,7 @@ func TestMetaIsPublic(t *testing.T) {
 }
 
 func TestProtectedRoutesNeedToken(t *testing.T) {
-	for _, path := range []string{"/api/v1/me", "/api/v1/notes", "/api/v1/notes/1", "/api/v1/private-notes", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image", "/api/v1/account-requests"} {
+	for _, path := range []string{"/api/v1/me", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image", "/api/v1/account-requests"} {
 		rec := httptest.NewRecorder()
 		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		if rec.Code != http.StatusUnauthorized {

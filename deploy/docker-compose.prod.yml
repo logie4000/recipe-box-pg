@@ -8,8 +8,19 @@
 # AUTH_HOST (default auth.<APP_DOMAIN>).
 # nginx on the host terminates TLS, serves the Angular build and proxies to
 # the 127.0.0.1 ports below; see deploy/nginx/app.conf.template.
+
+# Rotate container logs (Docker keeps them forever by default). Rails' request
+# log holds client IP addresses, and the privacy policy promises server logs
+# are short-lived: at most 3 files of 10 MB per container, oldest dropped.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   postgres:
+    logging: *logging
     volumes:
       # dedicated EBS volume mounted at /srv/pgdata (daily snapshots via DLM)
       - ${PGDATA_DIR:-/srv/pgdata}:/var/lib/postgresql/data
@@ -20,6 +31,7 @@ services:
           memory: 1g
 
   keycloak:
+    logging: *logging
     build:
       context: ./keycloak
       args:
@@ -37,6 +49,7 @@ services:
           memory: 1g
 
   write-api:
+    logging: *logging
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-write-api:${IMAGE_TAG:-latest}
     environment:
@@ -53,6 +66,7 @@ services:
           memory: 768m
 
   read-api:
+    logging: *logging
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-read-api:${IMAGE_TAG:-latest}
     environment:
@@ -68,6 +82,7 @@ services:
 
   # Nightly pg_dump -Fc of each database to S3 (instance role needs s3:PutObject).
   backup:
+    logging: *logging
     build: ./backup
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-backup:${IMAGE_TAG:-latest}
     restart: unless-stopped

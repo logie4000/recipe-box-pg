@@ -69,28 +69,5 @@ export const routes: Routes = [
     path: 'r/:code',
     loadComponent: () => import('./features/recipes/public-recipe').then((m) => m.PublicRecipePage),
   },
-  {
-    path: 'notes',
-    canActivate: [authGuard],
-    children: [
-      {
-        path: '',
-        loadComponent: () => import('./features/notes/note-list').then((m) => m.NoteList),
-        title: 'Notes',
-      },
-      {
-        path: 'new',
-        canActivate: [roleGuard('editor', 'admin')],
-        loadComponent: () => import('./features/notes/note-form').then((m) => m.NoteForm),
-        title: 'New note',
-      },
-      {
-        path: ':id/edit',
-        canActivate: [roleGuard('editor', 'admin')],
-        loadComponent: () => import('./features/notes/note-form').then((m) => m.NoteForm),
-        title: 'Edit note',
-      },
-    ],
-  },
   { path: '**', redirectTo: '' },
 ];

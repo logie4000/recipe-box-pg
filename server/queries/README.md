@@ -7,9 +7,8 @@ Every file here is compiled by sqlc (`make gen`) against
   anything else. Writes belong in the Rails write-api.
 - Keep comments out of these files: sqlc turns them into Go doc comments on
   the generated functions.
-- `private_notes.sql`: row-level security returns only the caller's rows,
-  because each request transaction sets `app.user_id` to the token's `sub`
-  (`db.ReadTx` in `internal/db/db.go`). No WHERE clause is needed.
+- Row-level security sees the caller because each request transaction sets
+  `app.user_id` to the token's `sub` (`db.ReadTx` in `internal/db/db.go`).
 - `recipes.sql`: owner queries filter on `owner_sub` explicitly *and* rely
   on RLS. `GetPublicRecipe` serves the no-login route, which looks recipes up by
   their random 12-character `public_id` (never the sequential `id`) and runs with no user,

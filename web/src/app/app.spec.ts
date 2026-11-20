@@ -52,7 +52,7 @@ describe('App', () => {
     // All Recipes works signed out; the rest show greyed, with a reason, and don't link.
     expect(nav(fixture).querySelector('a[href="/public"]')?.textContent).toContain('All Recipes');
     const inert = Array.from(nav(fixture).querySelectorAll('.disabled'));
-    expect(inert.map((e) => e.textContent?.trim())).toEqual(['My Recipes', 'Saved', 'Notes']);
+    expect(inert.map((e) => e.textContent?.trim())).toEqual(['My Recipes', 'Saved']);
     expect(inert.every((e) => e.tagName === 'SPAN' && e.getAttribute('title'))).toBe(true);
   });
 
@@ -87,7 +87,7 @@ describe('App', () => {
 
     const inert = Array.from(nav(fixture).querySelectorAll('.disabled'));
     expect(inert.map((e) => e.getAttribute('title'))).toEqual(
-      Array(3).fill('Waiting for approval'),
+      Array(2).fill('Waiting for approval'),
     );
   });
 });

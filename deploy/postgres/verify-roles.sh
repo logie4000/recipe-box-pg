@@ -31,13 +31,13 @@ expect_fail() {
 R=app_reader; RP="${APP_READER_PASSWORD:-}"
 W=app_writer; WP="${APP_WRITER_PASSWORD:-}"
 
-expect_ok   $R "$RP" "SELECT count(*) FROM notes"
-expect_fail $R "$RP" "INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('x', '', 'x', now(), now())"
+expect_ok   $R "$RP" "SELECT count(*) FROM recipes"
+expect_fail $R "$RP" "INSERT INTO recipes (public_id, owner_sub, title, created_at, updated_at) VALUES ('Verify000001', 'x', 'x', now(), now())"
 expect_fail $R "$RP" "SELECT count(*) FROM solid_queue_jobs"
 [ "$(run $R "$RP" 'SHOW default_transaction_read_only')" = "on" ] && echo "ok   $R: default_transaction_read_only = on" || { echo "FAIL $R is not read-only by default"; fail=1; }
 
-expect_ok   $W "$WP" "BEGIN; INSERT INTO notes (title, body, author_sub, created_at, updated_at) VALUES ('x', '', 'x', now(), now()); ROLLBACK"
+expect_ok   $W "$WP" "BEGIN; SET LOCAL app.user_id = 'x'; INSERT INTO recipes (public_id, owner_sub, title, created_at, updated_at) VALUES ('Verify000001', 'x', 'x', now(), now()); ROLLBACK"
 expect_fail $W "$WP" "CREATE TABLE should_not_exist (id int)"
-expect_fail $W "$WP" "ALTER TABLE notes ADD COLUMN nope int"
+expect_fail $W "$WP" "ALTER TABLE recipes ADD COLUMN nope int"
 
 exit $fail
