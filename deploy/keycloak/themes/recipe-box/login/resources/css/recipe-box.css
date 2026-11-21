@@ -1,0 +1,182 @@
+/* Recipe Box look for Keycloak's sign-in pages (on top of keycloak.v2).
+   Colours and fonts follow web/src/styles.scss: light-blue masthead,
+   typewriter title, Trebuchet body, and the recipe card from the icon. */
+:root {
+  --rb-masthead: lightblue;
+  --rb-menu: rgb(127, 211, 245);
+  --rb-button: lightskyblue;
+  --rb-card: #fffdf6;
+  --rb-ink: #3b2a1a;
+  --rb-rule: #c0392b;
+  --rb-border: #c0c0c0;
+  --rb-accent: #1a6fa3;
+  --rb-font-body: 'Trebuchet MS', Arial, Helvetica, sans-serif;
+  --rb-font-type: 'Courier New', Courier, monospace;
+
+  --pf-v5-global--FontFamily--text: var(--rb-font-body);
+  --pf-v5-global--FontFamily--heading: var(--rb-font-type);
+  --pf-v5-global--link--Color: var(--rb-accent);
+  --pf-v5-global--link--Color--hover: #0f4f78;
+  --pf-v5-global--primary-color--100: var(--rb-accent);
+}
+
+/* Page: soft blue, with the app's light-blue masthead across the top. */
+.login-pf body,
+#keycloak-bg {
+  background: #eef7fb;
+  font-family: var(--rb-font-body);
+  color: #000;
+}
+
+/* Pinned to the top (Keycloak centres it), so the band touches the edge. */
+.pf-v5-c-login {
+  align-items: flex-start;
+  padding-top: 0 !important;
+}
+
+.pf-v5-c-login__container {
+  grid-template-columns: minmax(0, 30rem);
+  padding: 0 1rem 2rem !important;
+}
+
+/* Masthead: full-width band holding the icon and the typewriter "Recipe Box". */
+#kc-header.pf-v5-c-login__header {
+  margin: 0 0 2rem;
+  padding: 1.25rem 0;
+  color: #000;
+  background: var(--rb-masthead);
+  box-shadow: 0 0 0 100vmax var(--rb-masthead);
+  clip-path: inset(0 -100vmax);
+}
+
+#kc-header-wrapper.pf-v5-c-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 0;
+  font-family: var(--rb-font-type);
+  font-weight: 900;
+  font-size: 2.75rem;
+  line-height: 1;
+  color: #000 !important;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#kc-header-wrapper::before {
+  content: '';
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: none;
+  background: url('../img/recipe-box.svg') no-repeat center / contain;
+}
+
+/* The card: a recipe index card, cream with a blue tab edge. */
+.pf-v5-c-login__main {
+  background: var(--rb-card);
+  border: 2px solid var(--rb-ink);
+  border-radius: 6px;
+  box-shadow: 0 6px 0 rgb(59 42 26 / 15%);
+}
+
+.pf-v5-c-login__main-header {
+  display: block;
+  border-top: 8px solid var(--rb-menu);
+  border-radius: 4px 4px 0 0;
+}
+
+/* The page title sits on the card's red rule, like the lines on the icon's card. */
+#kc-page-title {
+  font-family: var(--rb-font-type);
+  font-weight: 900;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--rb-rule);
+}
+
+/* Fields: white boxes with a full grey edge, blue when focused. */
+.pf-v5-c-form-control {
+  --pf-v5-c-form-control--BackgroundColor: #fff;
+}
+
+.pf-v5-c-form-control::before {
+  border: 1px solid var(--rb-border);
+  border-radius: 6px;
+}
+
+.pf-v5-c-form-control::after {
+  border: none;
+}
+
+.pf-v5-c-form-control:focus-within::before {
+  border: 2px solid var(--rb-accent);
+}
+
+/* The show-password eye sits inside the same edge. */
+.pf-v5-c-input-group .pf-v5-c-input-group__item:first-child .pf-v5-c-form-control::before {
+  border-radius: 6px 0 0 6px;
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control {
+  --pf-v5-c-button--BorderRadius: 0 6px 6px 0;
+}
+
+.pf-v5-c-input-group .pf-v5-c-button.pf-m-control::after {
+  border: 1px solid var(--rb-border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+}
+
+.pf-v5-c-form__label-text {
+  font-weight: 700;
+}
+
+/* Buttons: the app's primary button (sky blue, black edge) and plain grey. */
+.pf-v5-c-button.pf-m-primary {
+  --pf-v5-c-button--m-primary--BackgroundColor: var(--rb-button);
+  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--rb-menu);
+  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--rb-menu);
+  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--rb-menu);
+  --pf-v5-c-button--m-primary--Color: #000;
+  --pf-v5-c-button--m-primary--hover--Color: #000;
+  --pf-v5-c-button--m-primary--focus--Color: #000;
+  --pf-v5-c-button--m-primary--active--Color: #000;
+  --pf-v5-c-button--BorderRadius: 4px;
+  border: 1px solid #000;
+  font-weight: 700;
+}
+
+.pf-v5-c-button.pf-m-secondary {
+  --pf-v5-c-button--m-secondary--BackgroundColor: #fff;
+  --pf-v5-c-button--m-secondary--Color: #000;
+  --pf-v5-c-button--m-secondary--hover--Color: #000;
+  --pf-v5-c-button--m-secondary--focus--Color: #000;
+  --pf-v5-c-button--m-secondary--after--BorderColor: var(--rb-border);
+  --pf-v5-c-button--m-secondary--hover--after--BorderColor: var(--rb-ink);
+  --pf-v5-c-button--BorderRadius: 4px;
+}
+
+.pf-v5-c-button.pf-m-secondary:hover {
+  background: #f3f3f3;
+}
+
+/* Sign-up: say up front that new accounts are approved by hand. */
+[data-page-id='login-register'] .pf-v5-c-login__main-header::after {
+  content: 'You can browse public recipes right away. Saving your own starts once your account is approved.';
+  display: block;
+  margin-top: 0.9rem;
+  color: #5f5f66;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 480px) {
+  #kc-header-wrapper.pf-v5-c-brand {
+    font-size: 2.1rem;
+  }
+  #kc-header-wrapper::before {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+}

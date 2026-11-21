@@ -6,6 +6,7 @@
 #   deploy/keycloak/configure.sh org-ids           # organization claim carries org ids (TENANT_MODE)
 #   deploy/keycloak/configure.sh signup            # self sign-up, approved in the app (realms imported before it)
 #   deploy/keycloak/configure.sh rename-realm      # one-off: rename the old realm "app" to "recipe-box"
+#   deploy/keycloak/configure.sh theme             # Recipe Box sign-in page look (themes/recipe-box)
 #
 # Uses kcadm.sh inside the running keycloak container.
 set -euo pipefail
@@ -111,11 +112,20 @@ rename_realm() {
   echo "Google sign-in: add https://<auth host>/realms/$realm/broker/google/endpoint to the OAuth client's redirect URIs."
 }
 
+# The sign-in pages' look (also in realm.json, for new installs). The theme
+# files must already be in Keycloak: mounted in local dev, baked into the
+# standalone image, copied by shared-platform.sh on a shared host.
+theme() {
+  kcadm update "realms/$realm" -s loginTheme=recipe-box -s "displayName=Recipe Box"
+  echo "realm $realm now uses the recipe-box sign-in theme."
+}
+
 login
 case "${1:-}" in
   google-autolink) google_autolink ;;
   org-ids) org_ids ;;
   signup) signup ;;
   rename-realm) rename_realm ;;
-  *) echo "usage: $0 google-autolink|org-ids|signup|rename-realm" >&2; exit 2 ;;
+  theme) theme ;;
+  *) echo "usage: $0 google-autolink|org-ids|signup|rename-realm|theme" >&2; exit 2 ;;
 esac
