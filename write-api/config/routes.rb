@@ -12,8 +12,11 @@ Rails.application.routes.draw do
       end
       # Same path as the read-api's GET /api/v1/saved-recipes.
       resources :saved_recipes, path: "saved-recipes", only: %i[create destroy]
-      # Sign-up with approval; admins list them on the read-api.
+      # Getting in: email verification, or an admin's approval (admins list
+      # the requests on the read-api).
       resources :account_requests, path: "account-requests", only: %i[create destroy] do
+        post :code, on: :collection
+        post :verify, on: :collection
         post :approve, on: :member
       end
     end

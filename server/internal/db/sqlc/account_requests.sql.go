@@ -27,7 +27,9 @@ type ListAccountRequestsRow struct {
 }
 
 // Sign-ups waiting for approval, oldest first. RLS shows all of them only to
-// admins (app.is_admin = 'on'); anyone else sees at most their own.
+// admins (app.is_admin = 'on'); anyone else sees at most their own. Lists
+// its columns on purpose: the code_* columns (sign-up email verification)
+// are never returned.
 func (q *Queries) ListAccountRequests(ctx context.Context) ([]ListAccountRequestsRow, error) {
 	rows, err := q.db.Query(ctx, listAccountRequests)
 	if err != nil {

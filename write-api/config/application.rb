@@ -29,7 +29,7 @@ module WriteApi
     # Initialize configuration defaults for originally generated Rails version.
     config.load_defaults 8.1
 
-    config.autoload_lib(ignore: %w[assets tasks generators pg_tools middleware])
+    config.autoload_lib(ignore: %w[assets tasks generators pg_tools middleware delivery])
 
     # APP_PATH: the path production serves the site under (/recipe-box), or
     # empty at the root of the domain. See lib/middleware/path_prefix.rb.

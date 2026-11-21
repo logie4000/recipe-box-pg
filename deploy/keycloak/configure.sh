@@ -7,7 +7,6 @@
 #   deploy/keycloak/configure.sh signup            # self sign-up, approved in the app (realms imported before it)
 #   deploy/keycloak/configure.sh rename-realm      # one-off: rename the old realm "app" to "recipe-box"
 #   deploy/keycloak/configure.sh theme             # Recipe Box sign-in page look (themes/recipe-box)
-#   deploy/keycloak/configure.sh email             # mail server from KC_SMTP_* (.env), verify email, forgot password
 #
 # Uses kcadm.sh inside the running keycloak container.
 set -euo pipefail
@@ -78,8 +77,9 @@ org_ids() {
 # Self sign-up (also in realm.json, for new installs). Anyone can register;
 # new accounts get no app role from Keycloak. The app grants "reader" through
 # the rails-admin client's service account: by itself for accounts with a
-# verified email (password sign-ups once `email` is on, Google), otherwise
-# when an admin approves them on the app's Approvals page.
+# verified email (Google sign-ins, or password sign-ups that enter the code
+# the app emails them), otherwise when an admin approves them on the app's
+# Approvals page.
 signup() {
   kcadm update "realms/$realm" -s registrationAllowed=true
   local client
@@ -122,27 +122,6 @@ theme() {
   echo "realm $realm now uses the recipe-box sign-in theme."
 }
 
-# Mail server, with email verification for password sign-ups and "Forgot
-# password?" (docs/email.md; shared-platform.sh does the same on every
-# deploy). KC_SMTP_* come from the environment or .env; locally .env.example
-# points them at Mailpit (http://127.0.0.1:8025). Without KC_SMTP_HOST it
-# changes nothing: verify email without mail would lock out every sign-up.
-email() {
-  local v val
-  for v in KC_SMTP_HOST KC_SMTP_PORT KC_SMTP_USER KC_SMTP_PASSWORD KC_SMTP_FROM KC_SMTP_FROM_NAME KC_SMTP_REPLY_TO KC_SMTP_SSL; do
-    if [ -z "${!v:-}" ]; then
-      val=$(sed -n "s/^$v=//p" "$here/../../.env" 2>/dev/null | tail -1)
-      printf -v "$v" '%s' "$val"
-    fi
-    export "${v?}"
-  done
-  [ -n "$KC_SMTP_HOST" ] || { echo "KC_SMTP_HOST not set (.env); email settings left as they are" >&2; exit 1; }
-  local py=python3 # Windows installs often have only "python"
-  command -v python3 >/dev/null 2>&1 || py=python
-  "$py" "$here/smtp-settings.py" | kcadm update "realms/$realm" --merge -f -
-  echo "realm $realm sends mail via $KC_SMTP_HOST from $KC_SMTP_FROM: password sign-ups verify their email, forgot password on."
-}
-
 login
 case "${1:-}" in
   google-autolink) google_autolink ;;
@@ -150,6 +129,5 @@ case "${1:-}" in
   signup) signup ;;
   rename-realm) rename_realm ;;
   theme) theme ;;
-  email) email ;;
-  *) echo "usage: $0 google-autolink|org-ids|signup|rename-realm|theme|email" >&2; exit 2 ;;
+  *) echo "usage: $0 google-autolink|org-ids|signup|rename-realm|theme" >&2; exit 2 ;;
 esac

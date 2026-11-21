@@ -1,8 +1,7 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, effect, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 
-import { environment } from '../environments/environment';
+import { AccountRequestService } from './core/account-request.service';
 import { AuthService } from './core/auth.service';
 
 @Component({
@@ -13,28 +12,21 @@ import { AuthService } from './core/auth.service';
 })
 export class App {
   protected readonly auth = inject(AuthService);
-  private readonly http = inject(HttpClient);
+  private readonly accountRequest = inject(AccountRequestService);
   private requested = false;
 
   constructor() {
-    // A new account asks to be let in as soon as it signs in. With a verified
-    // email the API lets it in at once ("approved"); otherwise it shows up on
-    // the admin's Approvals page. Asking again is harmless.
+    // A new account asks to be let in as soon as it signs in: a verified
+    // email (Google) gets straight in, a password sign-up is emailed a code
+    // to enter on the home page, and without email an admin approves it on
+    // the Approvals page. Asking again is harmless.
     effect(() => {
       if (this.auth.isPending() && !this.requested) {
         this.requested = true;
-        // Best effort: if it fails, the next sign-in tries again.
-        this.http.post<{ status?: string }>(`${environment.api}/account-requests`, {}).subscribe({
-          next: (res) => {
-            if (res?.status === 'approved') {
-              // The current token predates the new role: fetch a fresh one.
-              // If that fails, "Check again" on the home page or the next
-              // sign-in picks it up.
-              this.auth.refreshRoles().catch(() => undefined);
-            }
-          },
-          error: () => undefined,
-        });
+        // Best effort: if it fails, the next sign-in tries again. When the
+        // answer is "approved" the service fetches a fresh token for the role;
+        // if that fails, "Check again" or the next sign-in picks it up.
+        void this.accountRequest.start();
       }
     });
   }

@@ -34,7 +34,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
 | `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, photos, endpoints, web pages. |
 | `docs/ssm.md` | Production settings in SSM Parameter Store: first-time setup, changing a setting. |
-| `docs/email.md` | Email from Keycloak (verification after sign-up, forgot password): Amazon SES setup, SSM parameters, Mailpit locally. |
+| `docs/email.md` | Sign-up email: the six-digit code a password sign-up enters, sent through Amazon SES; setup, testing, local dev. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `.github/workflows/images.yml` | After CI passes on main: build the production images and push them to ECR (`docs/ecr.md`). |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
@@ -57,7 +57,7 @@ or use the PowerShell script, which has the same targets: `./dev.ps1 up`,
 
 ```bash
 make env        # .env from .env.example (dev passwords)
-make up         # postgres + keycloak + mailpit; realm "recipe-box" is imported on first start
+make up         # postgres + keycloak; realm "recipe-box" is imported on first start
 make migrate    # db:migrate + db:seed as app_owner, then sqlc generate
 
 # three terminals
@@ -65,10 +65,6 @@ make rails      # write-api  http://localhost:3000
 make api        # read-api   http://localhost:8080
 make web        # Angular    http://localhost:4200   <- open this
 ```
-
-Mail that Keycloak sends (email verification, password reset) lands in
-Mailpit at http://localhost:8025 once the realm is pointed at it:
-`bash deploy/keycloak/configure.sh email` (`docs/email.md`).
 
 Setting up the Ruby and JS dependencies for the first time:
 `cd write-api && bundle install`, then `cd web && npm ci`.
@@ -169,13 +165,16 @@ enable the provider in the admin console, and run
 `deploy/keycloak/configure.sh google-autolink`. The SPA's "Sign in with Google" button passes
 `kc_idp_hint=google`.
 
-## Email
+## Sign-up
 
-Password sign-ups verify their email address before they can sign in, and
-"Forgot password?" emails a reset link, once Keycloak has a mail server.
-In production that's Amazon SES, set from `KC_SMTP_*` in SSM on every deploy
-(`docs/email.md`); without `KC_SMTP_HOST` the realm's email settings stay as
-they are and verification stays off.
+Anyone can create an account; a new one has no app role until it gets
+`reader`. A Google sign-in gets it straight away (Google has verified the
+email). A password sign-up is emailed a six-digit code by the write-api
+(Amazon SES, `MAIL_FROM` in SSM) and enters it on the home page. Without
+`MAIL_FROM`, password sign-ups wait for an admin on the Approvals page, who
+can also approve anyone still waiting for a code. Setup: `docs/email.md`.
+Locally, `make rails` writes the emails to `write-api/tmp/mails` once
+`MAIL_FROM` is set in `.env`.
 
 ## API versioning and mobile
 

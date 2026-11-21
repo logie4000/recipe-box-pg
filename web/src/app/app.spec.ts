@@ -111,9 +111,9 @@ describe('App', () => {
     await fixture.whenStable();
 
     backend.expectOne('/api/v1/account-requests').flush({ status: 'approved' });
+    await vi.waitFor(() => expect(refreshRoles).toHaveBeenCalledTimes(1));
     await fixture.whenStable();
 
-    expect(refreshRoles).toHaveBeenCalledTimes(1);
     expect(nav(fixture).querySelector('a[href="/recipes"]')).not.toBeNull();
     expect(nav(fixture).querySelectorAll('.disabled').length).toBe(0);
   });
@@ -126,9 +126,9 @@ describe('App', () => {
     await fixture.whenStable();
 
     backend.expectOne('/api/v1/account-requests').flush({ status: 'approved' });
+    await vi.waitFor(() => expect(refreshRoles).toHaveBeenCalledTimes(1));
     await fixture.whenStable();
 
-    expect(refreshRoles).toHaveBeenCalledTimes(1);
     expect(nav(fixture).querySelectorAll('.disabled').length).toBe(2);
   });
 });

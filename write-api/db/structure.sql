@@ -23,7 +23,13 @@ CREATE TABLE public.account_requests (
     email character varying,
     name character varying,
     created_at timestamp(6) without time zone NOT NULL,
-    updated_at timestamp(6) without time zone NOT NULL
+    updated_at timestamp(6) without time zone NOT NULL,
+    code_digest character varying,
+    code_email character varying,
+    code_sent_at timestamp(6) without time zone,
+    code_attempts integer DEFAULT 0 NOT NULL,
+    codes_sent integer DEFAULT 0 NOT NULL,
+    codes_window_started_at timestamp(6) without time zone
 );
 
 ALTER TABLE ONLY public.account_requests FORCE ROW LEVEL SECURITY;
@@ -1234,6 +1240,7 @@ CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::te
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261121190000'),
 ('20261120150000'),
 ('20261006170000'),
 ('20261006150000'),

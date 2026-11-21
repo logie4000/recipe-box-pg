@@ -66,17 +66,6 @@ services:
       retries: 30
       start_period: 20s
 
-  # Local dev only: catches the mail Keycloak sends (email verification,
-  # password reset); read it at http://127.0.0.1:8025. The realm is pointed
-  # at it by deploy/keycloak/configure.sh email (KC_SMTP_HOST=mailpit in
-  # .env). The "dev" profile keeps it out of production; `make up` names it.
-  mailpit:
-    profiles: ["dev"]
-    image: axllent/mailpit:${MAILPIT_VERSION:-v1.33.1}
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
-
   write-api:
     profiles: ["apps"]
     build: ../write-api
@@ -118,6 +107,9 @@ services:
       IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:-}
       IMAGE_S3_PREFIX: ${IMAGE_S3_PREFIX:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Sign-up verification codes, sent through Amazon SES as the instance
+      # role (docs/email.md). Unset: password sign-ups wait for an admin.
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - images:/srv/images
     ports:

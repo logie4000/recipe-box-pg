@@ -1,240 +1,165 @@
-# Email: verification and password reset (Amazon SES)
+# Sign-up email (Amazon SES)
 
-Keycloak sends two kinds of mail for Recipe Box: the "verify your email"
-link after a password sign-up, and the "Forgot password?" reset link. In
-production it sends them through Amazon SES (account 470114120012,
-us-east-1) over SMTP. Locally they go to Mailpit.
+A password sign-up confirms its email address with a six-digit code before
+it gets in. The write-api emails the code on the account's first sign-in,
+and the home page asks for it. The right code marks the email verified in
+Keycloak and grants `reader`, so the new account can add recipes at once,
+with no Approvals step. Google sign-ins skip all this: Google has already
+verified the address, so the app lets them straight in.
 
-The realm only turns on email verification together with a mail server.
-Verification without one would mean nobody could finish signing up.
+Codes last 15 minutes and allow 5 tries. A new one can be sent once a
+minute, 5 a day per account. Only an HMAC of the code is stored, bound to
+the address it was sent to; it never appears in an API response or in the
+read-api's Approvals list, and the `code` parameter is filtered from the log.
 
-## What changes for users
+Mail goes out through SES's API as Denali's instance role, so there are no
+SMTP credentials to keep. Until `MAIL_FROM` is set nothing is sent, and
+password sign-ups wait for an admin on the Approvals page as before. An
+admin can still approve (or decline) anyone who hasn't entered their code.
 
-- **New password sign-ups** get an email with a link and must click it before
-  they can sign in. The sign-in page says "Check your email" and can send the
-  link again. The app then approves them by itself, because their email is
-  verified.
-- **Existing password accounts whose email isn't verified** get the same
-  email the next time they sign in, and must click the link to continue.
-  Check that the admin account's email address is real (or mark it verified
-  in the admin console: Users > the user > Email verified) before you turn
-  this on.
-- **Google sign-ins** don't change. Google has already verified the address.
-- **"Forgot password?"** appears on the sign-in page and emails a reset link.
+The flow is the same as Sweat Equity's. The sender is
+`no-reply@specialbrewsoftware.com`, which is a different SES identity from
+Sweat Equity's `specialbrew.net`, so it needs verifying once (step 1). The
+steps use account 470114120012 and `us-east-1`; use the same region as
+`AWS_REGION` in SSM.
 
-## How it's applied
+## 1. Verify the domain in SES (with DKIM)
 
-On Denali, `deploy/scripts/shared-platform.sh` runs on every deploy. While
-`KC_SMTP_HOST` is set in SSM it:
+Verifying `specialbrewsoftware.com` lets the app send from any address there
+(no mailbox needed for `no-reply@`), and DKIM keeps the mail out of spam.
+From PowerShell, signed in to the account:
 
-1. sets the recipe-box realm's mail server (Realm settings > Email) from the
-   `KC_SMTP_*` parameters,
-2. turns on **Verify email** and **Forgot password** (Realm settings > Login).
-
-It only touches the recipe-box realm. With no `KC_SMTP_HOST` it changes
-nothing and prints `no KC_SMTP_HOST, ... left as they are`. Removing the
-parameter later doesn't turn email off (see "Turning it off").
-
-| Parameter | Value |
-| --- | --- |
-| `KC_SMTP_HOST` | `email-smtp.us-east-1.amazonaws.com` |
-| `KC_SMTP_PORT` | `587` (the default; STARTTLS) |
-| `KC_SMTP_USER` | SES SMTP user name (step 3) |
-| `KC_SMTP_PASSWORD` | SES SMTP password (step 3), **SecureString** |
-| `KC_SMTP_FROM` | `no-reply@specialbrewsoftware.com` (any address on the domain verified in step 1) |
-| `KC_SMTP_FROM_NAME` | optional, default `Recipe Box` |
-| `KC_SMTP_REPLY_TO` | optional, where replies go (no-reply has no inbox): `info@specialbrewsoftware.com`, the privacy policy contact |
-| `KC_SMTP_SSL` | optional: `true` for SSL from the start on port 465 instead of STARTTLS |
-
-Don't put a value with spaces in SSM (such as a different
-`KC_SMTP_FROM_NAME`): the deploy loads `.env` with bash, which reads
-`KEY=two words` as a command. The default "Recipe Box" is set by the helper,
-not by `.env`, so leave `KC_SMTP_FROM_NAME` out.
-
-## 1. Verify the sender domain (with DKIM)
-
-SES console (region **US East (N. Virginia)**) > **Identities** >
-**Create identity** > **Domain**: enter the domain the mail comes from,
-`specialbrewsoftware.com`. Leave **Easy DKIM** on, RSA 2048 bit, and **Publish DNS
-records to Route 53** checked if the domain is in Route 53 in this account.
-
-Otherwise SES shows three CNAME records to add at your DNS host:
-
-```
-<token1>._domainkey.specialbrewsoftware.com  CNAME  <token1>.dkim.amazonses.com
-<token2>._domainkey.specialbrewsoftware.com  CNAME  <token2>.dkim.amazonses.com
-<token3>._domainkey.specialbrewsoftware.com  CNAME  <token3>.dkim.amazonses.com
+```powershell
+aws sesv2 create-email-identity --region us-east-1 --email-identity specialbrewsoftware.com
+aws sesv2 get-email-identity --region us-east-1 --email-identity specialbrewsoftware.com --query 'DkimAttributes.Tokens' --output text
 ```
 
-The identity turns **Verified** once SES sees them (minutes to a few hours).
-Any address on the domain can then be the sender, so there's no mailbox to
-create for `no-reply@`.
+For each of the three tokens, add a DNS record:
 
-Also add, if the domain doesn't have them yet:
+```
+<token>._domainkey.specialbrewsoftware.com  CNAME  <token>.dkim.amazonses.com
+```
 
-- **SPF**: nothing to do for a start. SES sends with its own envelope
-  sender (an amazonses.com address), which passes SPF, and DKIM is what lines
-  the mail up with specialbrewsoftware.com for DMARC. Optionally, give the identity a
-  custom MAIL FROM domain (identity > **Custom MAIL FROM domain**, e.g.
-  `mail.specialbrewsoftware.com`) and add the MX and TXT
-  (`v=spf1 include:amazonses.com ~all`) records SES shows, so SPF aligns too.
-- **DMARC**: a TXT record `_dmarc.specialbrewsoftware.com` with e.g.
-  `v=DMARC1; p=none; rua=mailto:info@specialbrewsoftware.com`. Start with `p=none`, look at
-  the reports, then tighten to `quarantine`.
+If the zone is in Route 53 in this account, the SES console (Identities,
+then specialbrewsoftware.com) offers to add them for you. The identity shows
+*Verified* once DNS has the records, usually within an hour:
 
-## 2. Get out of the sandbox
+```powershell
+aws sesv2 get-email-identity --region us-east-1 --email-identity specialbrewsoftware.com --query 'VerifiedForSendingStatus'
+```
 
-A new SES account is in the **sandbox**: it can send only to addresses (or
-domains) that are verified identities, 200 messages a day. To test before
-production access, verify your own test addresses: **Identities** >
-**Create identity** > **Email address**, then click the link SES sends.
+If the domain has no DMARC record yet, add
+`TXT _dmarc.specialbrewsoftware.com "v=DMARC1; p=none;"`. SPF needs nothing:
+SES sends with its own envelope sender, and DKIM lines the mail up with the
+domain for DMARC.
 
-For real sign-ups, request production access: SES console > **Account
-dashboard** > **Request production access**. Mail type **Transactional**,
-the website URL, and a short description such as: "Account emails for a
-small recipe website: email address verification after sign-up and password
-reset links, sent only to people who signed up. No marketing mail. Bounces
-and complaints are handled by SES's suppression list." AWS usually answers
-within a day.
+## 2. Production access (skip if already done)
 
-## 3. Create SMTP credentials
+Production access is per account and region, not per domain. Sweat Equity
+already sends from this account in `us-east-1`, so it is most likely on;
+check:
 
-SES console > **SMTP settings** > **Create SMTP credentials**. It creates an
-IAM user (name it e.g. `ses-smtp-recipe-box`) allowed to send
-(`ses:SendRawEmail`) and shows the **SMTP user name** and **SMTP password**
-once. Download them; the password can't be shown again. The SMTP endpoint on
-that page is `email-smtp.us-east-1.amazonaws.com`, port 587 (STARTTLS).
+```powershell
+aws sesv2 get-account --region us-east-1 --query 'ProductionAccessEnabled'
+```
 
-The console's user may send from any identity. To narrow it, replace its
-inline policy in IAM with:
+`true`: skip this step. `false`: the account is in the sandbox and can only
+send to verified addresses, 200 a day. Ask for production access in the SES
+console (Account dashboard, then Request production access: mail type
+*Transactional*, the site's URL, and a line like "one-time sign-up codes for
+a small recipe website; users ask for each email"). AWS usually answers
+within a day. To test before then, verify the address you'll sign up with:
+`aws sesv2 create-email-identity --region us-east-1 --email-identity you@example.com`
+and click the link SES sends.
+
+## 3. Let the instance role send
+
+The write-api calls SES as Denali's instance role, `teapothill-denali-access`
+(the same role that reads SSM and writes the photo bucket). In IAM, add
+this statement to one of its policies:
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": "ses:SendRawEmail",
-    "Resource": "arn:aws:ses:us-east-1:470114120012:identity/specialbrewsoftware.com"
-  }]
+  "Effect": "Allow",
+  "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+  "Resource": "arn:aws:ses:us-east-1:470114120012:identity/*",
+  "Condition": { "StringEquals": { "ses:FromAddress": "no-reply@specialbrewsoftware.com" } }
 }
 ```
 
-<details>
-<summary>Doing it by hand instead (IAM user + derived password)</summary>
+If the role already has Sweat Equity's statement (the same thing for
+`no-reply@specialbrew.net`), add the new address to its condition instead:
+`"ses:FromAddress": ["no-reply@specialbrew.net", "no-reply@specialbrewsoftware.com"]`.
+The resource is `identity/*`, as for Sweat Equity, so the statement also
+works while an account is in the sandbox (when SES can check permission on
+the recipient's identity too); the condition is what limits the sender.
 
-Create an IAM user with the policy above and an access key. The SMTP user
-name is the access key id. The SMTP password is derived from the secret
-access key (it is not the secret itself). In PowerShell:
+The containers reach the role through IMDSv2, as they already do for the
+photo bucket, so nothing else changes on the instance.
 
-```powershell
-$secret = Read-Host "Secret access key" -MaskInput
-function Sign([byte[]]$key, [string]$msg) {
-  [System.Security.Cryptography.HMACSHA256]::new($key).ComputeHash([Text.Encoding]::UTF8.GetBytes($msg))
-}
-$k = [Text.Encoding]::UTF8.GetBytes("AWS4" + $secret)
-foreach ($m in '11111111', 'us-east-1', 'ses', 'aws4_request', 'SendRawEmail') { $k = Sign $k $m }
-[Convert]::ToBase64String([byte[]](@(4) + $k))   # the SMTP password
-```
+## 4. Put the sender in SSM
 
-</details>
-
-## 4. Put the settings in SSM
-
-From your Windows machine (Denali's instance role can only read SSM), in
-PowerShell, signed in to account 470114120012:
+From PowerShell:
 
 ```powershell
-$p = '/webapp/recipe-box'
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_HOST" --type String --value 'email-smtp.us-east-1.amazonaws.com' --overwrite
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_PORT" --type String --value '587' --overwrite
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_FROM" --type String --value 'no-reply@specialbrewsoftware.com' --overwrite
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_USER" --type String --value '<SMTP user name>' --overwrite
-$smtpPassword = Read-Host "SES SMTP password" -MaskInput
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_PASSWORD" --type SecureString --value $smtpPassword --overwrite
-Remove-Variable smtpPassword
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrewsoftware.com>' --overwrite
 ```
 
-So replies reach a person (optional):
-
-```powershell
-aws ssm put-parameter --region us-east-1 --name "$p/KC_SMTP_REPLY_TO" --type String --value 'info@specialbrewsoftware.com' --overwrite
-```
-
-Check (names only):
-
-```powershell
-aws ssm get-parameters-by-path --region us-east-1 --path /webapp/recipe-box/ --query "Parameters[?contains(Name, 'KC_SMTP')].Name"
-```
-
-`Read-Host -MaskInput` needs PowerShell 7; in Windows PowerShell 5.1 leave
-out `-MaskInput` (the password is then shown while you type).
+The display name has a space and angle brackets; that's fine, because
+`env-from-ssm.sh` writes such values to `.env` in single quotes, which both
+bash and docker compose read literally (the same as Sweat Equity's). Only a
+single quote in the value is refused. A plain
+`no-reply@specialbrewsoftware.com` works too; the mail then shows just the
+address as the sender.
 
 ## 5. Deploy
 
-Deploy as usual (any image tag; nothing in the images changes):
+Deploy with an image built from this change (it adds the SES gem, the
+mailer and a migration, which the deploy runs):
 
 ```bash
 IMAGE_TAG=<git sha> deploy/scripts/deploy.sh
 ```
 
-Look for this line in the output:
-
-```
-keycloak: email on for realm recipe-box via email-smtp.us-east-1.amazonaws.com (verify email, forgot password)
-```
-
-The first deploy with this change also installs the sign-in theme's new
-messages ("Check your email", "Forgot password?"), which restarts the shared
-Keycloak once (about half a minute in which no site on it can sign in).
-Changing a parameter later only needs another deploy.
-
 ## 6. Test
 
-1. In the admin console (https://auth.specialbrew.net/admin, realm
-   recipe-box) > **Realm settings** > **Email**, check the settings, then
-   **Test connection**. It sends to the signed-in admin's own address, so
-   that address must be verified in SES while in the sandbox.
-2. In a private window, open the site, **Sign in** > **Create an account**
-   with a new address (a verified one while in the sandbox). The page says
-   **Check your email**.
-3. Open the "Verify email" mail and click the link. In the same browser
-   that takes you on into the site; elsewhere it says the address is verified
-   and you sign in. The app has approved you (no Approvals step): you can add
-   a recipe.
-4. Sign out, then **Sign in** > **Forgot password?** with the same address,
-   and follow the reset link.
+1. In a private window, open the site, **Sign in or sign up** >
+   **Create an account** with a new address (a verified one if the account
+   is still in the sandbox).
+2. Back on the home page it says "One last step: confirm your email
+   address" and the email arrives from no-reply@specialbrewsoftware.com
+   with the subject "123456 is your Recipe Box code".
+3. Enter the code and press **Confirm**: My Recipes and Saved unlock, and
+   the account isn't on the Approvals page.
 
-If no mail comes: Keycloak's log (`docker logs <infra-core keycloak
-container>`) shows the SMTP error; "Email address is not verified" means
-the account is still in the sandbox and the recipient isn't verified; SES >
-**Account dashboard** shows sends, bounces and complaints.
+If the email doesn't come, the page says "Couldn't send the email" and the
+write-api log has the reason:
+
+```bash
+docker compose -p recipe-box logs write-api | grep "verification email"
+```
+
+`AccessDenied` means the role's policy (step 3) is missing or names another
+address; "Email address is not verified" means the identity isn't verified
+yet (step 1) or, in the sandbox, the recipient isn't. SES > Account
+dashboard shows sends, bounces and complaints. SES's account-level
+suppression list (on by default) stops mail to addresses that bounced or
+complained.
 
 ## Turning it off
 
-Deleting `KC_SMTP_HOST` stops deploys from re-applying the settings but
-leaves them in the realm. To turn verification off, in the admin console >
-Realm settings > **Login**, switch off **Verify email** (and **Forgot
-password** if mail won't work any more), then delete the `KC_SMTP_*`
-parameters.
+Delete the parameter and deploy: password sign-ups wait for an admin again.
+
+```powershell
+aws ssm delete-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM
+```
 
 ## Local development
 
-`make up` also starts Mailpit, which catches every mail Keycloak sends:
-http://127.0.0.1:8025 (`./dev.ps1 up` starts it too).
-`.env.example` points `KC_SMTP_*` at it (`KC_SMTP_HOST=mailpit`, port 1025);
-copy those lines into an older `.env`. Then turn it on in the local realm
-once (it stays across restarts):
-
-```bash
-bash deploy/keycloak/configure.sh email
-```
-
-A fresh realm import (an empty Keycloak) starts without email again, like
-production before `KC_SMTP_HOST` is set; run the command again. The demo
-users are already verified. Sign up with any address, then open the mail in
-Mailpit.
-
-`configure.sh email` works the same against a standalone production
-Keycloak (with the SES values in that host's `.env`), or against the shared
-one with `PLATFORM_PROJECT` in `.env`. It needs Python 3 on the machine that
-runs it.
+`make rails` (or `./dev.ps1 rails`) runs the write-api in development, which
+writes each email to `write-api/tmp/mails/<address>` (and the log) instead
+of sending it. Set `MAIL_FROM` in `.env` to any address, for example
+`MAIL_FROM=Recipe Box <no-reply@recipe-box.localhost>`, restart it, and sign
+up with a password: the code is in that file. With `MAIL_FROM` empty,
+sign-ups wait for approval, as in production without SES. The compose
+write-api (`--profile apps`) runs in production mode and would try SES.
