@@ -98,7 +98,7 @@ The write-api emails password sign-ups a six-digit code once `MAIL_FROM` is
 set. From PowerShell:
 
 ```powershell
-aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrewsoftware.com>' --overwrite
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrew.net>' --overwrite
 ```
 
 The SES setup (domain identity, production access, the instance role's

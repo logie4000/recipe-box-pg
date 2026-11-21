@@ -1,6 +1,6 @@
 # Email, used only for sign-up verification codes (AccountRequestMailer).
 #
-#   MAIL_FROM   the sender, e.g. "Recipe Box <no-reply@specialbrewsoftware.com>".
+#   MAIL_FROM   the sender, e.g. "Recipe Box <no-reply@specialbrew.net>".
 #               In production it must be on an identity verified in SES
 #               (docs/email.md). Unset, no codes go out and new password
 #               sign-ups wait for an admin.

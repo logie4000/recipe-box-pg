@@ -17,102 +17,54 @@ SMTP credentials to keep. Until `MAIL_FROM` is set nothing is sent, and
 password sign-ups wait for an admin on the Approvals page as before. An
 admin can still approve (or decline) anyone who hasn't entered their code.
 
-The flow is the same as Sweat Equity's. The sender is
-`no-reply@specialbrewsoftware.com`, which is a different SES identity from
-Sweat Equity's `specialbrew.net`, so it needs verifying once (step 1). The
-steps use account 470114120012 and `us-east-1`; use the same region as
-`AWS_REGION` in SSM.
+The flow is the same as Sweat Equity's, and so is the sender:
+`no-reply@specialbrew.net`, with "Recipe Box" as the display name. Sweat
+Equity's setup (docs/deploy-denali.md there, "Sign-up email") already
+verified `specialbrew.net` in SES, took the account out of the sandbox and
+let Denali's role send as that address, so Recipe Box only needs its own
+`MAIL_FROM` (step 2). Step 1 checks that the shared pieces are in place. The
+steps use account 470114120012 and `us-east-1`.
 
-## 1. Verify the domain in SES (with DKIM)
+## 1. Check what Sweat Equity set up
 
-Verifying `specialbrewsoftware.com` lets the app send from any address there
-(no mailbox needed for `no-reply@`), and DKIM keeps the mail out of spam.
 From PowerShell, signed in to the account:
 
 ```powershell
-aws sesv2 create-email-identity --region us-east-1 --email-identity specialbrewsoftware.com
-aws sesv2 get-email-identity --region us-east-1 --email-identity specialbrewsoftware.com --query 'DkimAttributes.Tokens' --output text
+aws sesv2 get-email-identity --region us-east-1 --email-identity specialbrew.net --query 'VerifiedForSendingStatus'   # true
+aws sesv2 get-account --region us-east-1 --query 'ProductionAccessEnabled'                                            # true
 ```
 
-For each of the three tokens, add a DNS record:
-
-```
-<token>._domainkey.specialbrewsoftware.com  CNAME  <token>.dkim.amazonses.com
-```
-
-If the zone is in Route 53 in this account, the SES console (Identities,
-then specialbrewsoftware.com) offers to add them for you. The identity shows
-*Verified* once DNS has the records, usually within an hour:
-
-```powershell
-aws sesv2 get-email-identity --region us-east-1 --email-identity specialbrewsoftware.com --query 'VerifiedForSendingStatus'
-```
-
-If the domain has no DMARC record yet, add
-`TXT _dmarc.specialbrewsoftware.com "v=DMARC1; p=none;"`. SPF needs nothing:
-SES sends with its own envelope sender, and DKIM lines the mail up with the
-domain for DMARC.
-
-## 2. Production access (skip if already done)
-
-Production access is per account and region, not per domain. Sweat Equity
-already sends from this account in `us-east-1`, so it is most likely on;
-check:
-
-```powershell
-aws sesv2 get-account --region us-east-1 --query 'ProductionAccessEnabled'
-```
-
-`true`: skip this step. `false`: the account is in the sandbox and can only
-send to verified addresses, 200 a day. Ask for production access in the SES
-console (Account dashboard, then Request production access: mail type
-*Transactional*, the site's URL, and a line like "one-time sign-up codes for
-a small recipe website; users ask for each email"). AWS usually answers
-within a day. To test before then, verify the address you'll sign up with:
-`aws sesv2 create-email-identity --region us-east-1 --email-identity you@example.com`
-and click the link SES sends.
-
-## 3. Let the instance role send
-
-The write-api calls SES as Denali's instance role, `teapothill-denali-access`
-(the same role that reads SSM and writes the photo bucket). In IAM, add
-this statement to one of its policies:
+And in IAM, one of the policies on Denali's role `teapothill-denali-access`
+should have this statement (Sweat Equity's):
 
 ```json
 {
   "Effect": "Allow",
   "Action": ["ses:SendEmail", "ses:SendRawEmail"],
   "Resource": "arn:aws:ses:us-east-1:470114120012:identity/*",
-  "Condition": { "StringEquals": { "ses:FromAddress": "no-reply@specialbrewsoftware.com" } }
+  "Condition": { "StringEquals": { "ses:FromAddress": "no-reply@specialbrew.net" } }
 }
 ```
 
-If the role already has Sweat Equity's statement (the same thing for
-`no-reply@specialbrew.net`), add the new address to its condition instead:
-`"ses:FromAddress": ["no-reply@specialbrew.net", "no-reply@specialbrewsoftware.com"]`.
-The resource is `identity/*`, as for Sweat Equity, so the statement also
-works while an account is in the sandbox (when SES can check permission on
-the recipient's identity too); the condition is what limits the sender.
+All three in place: nothing to change, go to step 2. If one is missing,
+follow Sweat Equity's "Sign-up email (Amazon SES)" steps for it; they cover
+both apps, since the identity, the account and the role are shared. The
+containers reach the role through IMDSv2, as they already do for the photo
+bucket.
 
-The containers reach the role through IMDSv2, as they already do for the
-photo bucket, so nothing else changes on the instance.
-
-## 4. Put the sender in SSM
-
-From PowerShell:
+## 2. Put the sender in SSM
 
 ```powershell
-aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrewsoftware.com>' --overwrite
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrew.net>' --overwrite
 ```
 
 The display name has a space and angle brackets; that's fine, because
 `env-from-ssm.sh` writes such values to `.env` in single quotes, which both
 bash and docker compose read literally (the same as Sweat Equity's). Only a
-single quote in the value is refused. A plain
-`no-reply@specialbrewsoftware.com` works too; the mail then shows just the
-address as the sender.
+single quote in the value is refused. The address itself must stay
+`no-reply@specialbrew.net`, the one the role's condition allows.
 
-## 5. Deploy
+## 3. Deploy
 
 Deploy with an image built from this change (it adds the SES gem, the
 mailer and a migration, which the deploy runs):
@@ -121,13 +73,13 @@ mailer and a migration, which the deploy runs):
 IMAGE_TAG=<git sha> deploy/scripts/deploy.sh
 ```
 
-## 6. Test
+## 4. Test
 
 1. In a private window, open the site, **Sign in or sign up** >
    **Create an account** with a new address (a verified one if the account
    is still in the sandbox).
 2. Back on the home page it says "One last step: confirm your email
-   address" and the email arrives from no-reply@specialbrewsoftware.com
+   address" and the email arrives from "Recipe Box" <no-reply@specialbrew.net>
    with the subject "123456 is your Recipe Box code".
 3. Enter the code and press **Confirm**: My Recipes and Saved unlock, and
    the account isn't on the Approvals page.
@@ -139,9 +91,9 @@ write-api log has the reason:
 docker compose -p recipe-box logs write-api | grep "verification email"
 ```
 
-`AccessDenied` means the role's policy (step 3) is missing or names another
-address; "Email address is not verified" means the identity isn't verified
-yet (step 1) or, in the sandbox, the recipient isn't. SES > Account
+`AccessDenied` means the role's statement (step 1) is missing or
+`MAIL_FROM` uses another address; "Email address is not verified" means the
+identity isn't verified or, in the sandbox, the recipient isn't. SES > Account
 dashboard shows sends, bounces and complaints. SES's account-level
 suppression list (on by default) stops mail to addresses that bounced or
 complained.
