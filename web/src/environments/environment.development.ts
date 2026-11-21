@@ -7,7 +7,7 @@ export const environment: AppEnvironment = {
   production: false,
   clientVersion: '0.1.0-dev',
   oidc: {
-    authority: 'http://localhost:8081/realms/app',
+    authority: 'http://localhost:8081/realms/recipe-box',
     clientId: 'app-spa',
   },
   api: '/api/v1',

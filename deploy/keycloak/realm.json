@@ -1,5 +1,5 @@
 {
-  "realm": "app",
+  "realm": "recipe-box",
   "displayName": "App",
   "enabled": true,
   "sslRequired": "external",
@@ -137,7 +137,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "alice", "temporary": false }],
-      "realmRoles": ["default-roles-app", "reader"]
+      "realmRoles": ["default-roles-recipe-box", "reader"]
     },
     {
       "username": "editor",
@@ -147,7 +147,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "editor", "temporary": false }],
-      "realmRoles": ["default-roles-app", "editor"]
+      "realmRoles": ["default-roles-recipe-box", "editor"]
     },
     {
       "username": "admin",
@@ -157,7 +157,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["default-roles-app", "admin"]
+      "realmRoles": ["default-roles-recipe-box", "admin"]
     },
     {
       "username": "bob",
@@ -167,7 +167,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "bob", "temporary": false }],
-      "realmRoles": ["default-roles-app", "editor"]
+      "realmRoles": ["default-roles-recipe-box", "editor"]
     },
     {
       "username": "carol",
@@ -177,7 +177,7 @@
       "enabled": true,
       "emailVerified": true,
       "credentials": [{ "type": "password", "value": "carol", "temporary": false }],
-      "realmRoles": ["default-roles-app", "editor"]
+      "realmRoles": ["default-roles-recipe-box", "editor"]
     }
   ],
   "organizations": [

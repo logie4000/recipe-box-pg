@@ -20,7 +20,7 @@ import (
 
 func testServer() http.Handler {
 	s := &Server{
-		Verifier:         auth.NewVerifier(context.Background(), "http://issuer.test/realms/app", "app-api", "http://127.0.0.1:1/certs"),
+		Verifier:         auth.NewVerifier(context.Background(), "http://issuer.test/realms/recipe-box", "app-api", "http://127.0.0.1:1/certs"),
 		Log:              slog.New(slog.NewTextHandler(io.Discard, nil)),
 		MinClientVersion: "1.2.0",
 		AppVersion:       "test",
@@ -149,7 +149,7 @@ func TestServeImage(t *testing.T) {
 // read it and show a message instead of a generic network error.
 func TestRateLimitedResponseKeepsCORS(t *testing.T) {
 	s := &Server{
-		Verifier:       auth.NewVerifier(context.Background(), "http://issuer.test/realms/app", "app-api", "http://127.0.0.1:1/certs"),
+		Verifier:       auth.NewVerifier(context.Background(), "http://issuer.test/realms/recipe-box", "app-api", "http://127.0.0.1:1/certs"),
 		Log:            slog.New(slog.NewTextHandler(io.Discard, nil)),
 		CORSOrigins:    []string{"http://localhost:4200"},
 		AnonymousLimit: httpx.NewRateLimiter(60, 1),

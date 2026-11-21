@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	testIssuer   = "http://keycloak.test/realms/app"
+	testIssuer   = "http://keycloak.test/realms/recipe-box"
 	testAudience = "app-api"
 )
 
@@ -90,7 +90,7 @@ func TestVerifyRejectsBadTokens(t *testing.T) {
 	idp := newTestIdP(t)
 	cases := map[string]map[string]any{
 		"wrong audience": {"aud": "someone-else"},
-		"wrong issuer":   {"iss": "https://evil.example/realms/app"},
+		"wrong issuer":   {"iss": "https://evil.example/realms/recipe-box"},
 		"expired":        {"exp": time.Now().Add(-10 * time.Minute).Unix()},
 	}
 	for name, claims := range cases {

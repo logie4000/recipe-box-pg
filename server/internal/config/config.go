@@ -43,7 +43,7 @@ type Config struct {
 func Load() (Config, error) {
 	loadDotEnv()
 
-	issuer := env("OIDC_ISSUER", "http://localhost:8081/realms/app")
+	issuer := env("OIDC_ISSUER", "http://localhost:8081/realms/recipe-box")
 	c := Config{
 		Addr:               env("READ_API_ADDR", ":8080"),
 		DatabaseURL:        os.Getenv("READ_API_DATABASE_URL"),

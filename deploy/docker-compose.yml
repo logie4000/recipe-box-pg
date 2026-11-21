@@ -81,7 +81,7 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/recipe-box/protocol/openid-connect/certs}
       OIDC_ADMIN_CLIENT_ID: ${OIDC_ADMIN_CLIENT_ID:-rails-admin}
       OIDC_ADMIN_CLIENT_SECRET: ${OIDC_ADMIN_CLIENT_SECRET}
       ADMIN_REDIRECT_URI: ${ADMIN_REDIRECT_URI:-}
@@ -126,7 +126,7 @@ services:
       READ_API_DB_MAX_CONNS: ${READ_API_DB_MAX_CONNS:-10}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-app-api}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/app/protocol/openid-connect/certs}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/recipe-box/protocol/openid-connect/certs}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       TENANT_MODE: ${TENANT_MODE:-off}
       TENANT_SUBDOMAINS: ${TENANT_SUBDOMAINS:-off}

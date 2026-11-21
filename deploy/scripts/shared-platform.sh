@@ -10,7 +10,7 @@
 #
 # PLATFORM_PROJECT          compose project that owns postgres + keycloak (infra-core)
 # APP_DB_NAME, APP_OWNER_PASSWORD, APP_PLATFORM_PASSWORD
-# KEYCLOAK_REALM            this app's realm (default app)
+# KEYCLOAK_REALM            this app's realm (default recipe-box)
 # KC_BOOTSTRAP_ADMIN_USERNAME / KC_BOOTSTRAP_ADMIN_PASSWORD
 #                           a master-realm admin of that Keycloak (only used
 #                           to add the realm the first time)
@@ -23,7 +23,7 @@ cd "$(dirname "$0")/../.."
 
 : "${PLATFORM_PROJECT:?set PLATFORM_PROJECT (the compose project that runs postgres and keycloak)}"
 : "${APP_DB_NAME:=app}" "${APP_OWNER_PASSWORD:?}" "${APP_PLATFORM_PASSWORD:?}"
-: "${KEYCLOAK_REALM:=app}"
+: "${KEYCLOAK_REALM:=recipe-box}"
 export APP_DB_NAME
 
 container() {
@@ -46,8 +46,11 @@ docker exec -i \
   -e APP_OWNER_PASSWORD -e APP_PLATFORM_PASSWORD \
   "$pg" bash -s < deploy/postgres/init/01-roles.sh
 
-# 2. Realm, only when it doesn't exist yet (a new host). On Denali realm "app"
-#    already exists, so this leaves it exactly as it is.
+# 2. Realm, only when it doesn't exist yet (a new host). On Denali the realm
+#    already exists, so this leaves it exactly as it is. A host that still has
+#    the old realm "app" stops here: it has to be renamed first
+#    (deploy/keycloak/configure.sh rename-realm), or its users would be left
+#    behind in "app" and a new, empty realm created.
 kcadm() {
   docker exec -i -e KC_ADMIN_USER -e KC_ADMIN_PASSWORD "$kc" bash -c '
     cfg=/tmp/kcadm-$$.config
@@ -60,8 +63,11 @@ export KC_ADMIN_USER="${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}" KC_ADMIN_PASSWORD="
 
 if kcadm get "realms/$KEYCLOAK_REALM" --fields realm >/dev/null 2>&1; then
   echo "keycloak: realm $KEYCLOAK_REALM already exists, leaving it alone"
+elif [ "$KEYCLOAK_REALM" = recipe-box ] && kcadm get realms/app --fields realm >/dev/null 2>&1; then
+  echo "keycloak: realm 'app' still exists; rename it first: deploy/keycloak/configure.sh rename-realm" >&2
+  exit 1
 else
-  [ "$KEYCLOAK_REALM" = app ] || { echo "realm.json defines realm 'app'; KEYCLOAK_REALM=$KEYCLOAK_REALM isn't supported" >&2; exit 1; }
+  [ "$KEYCLOAK_REALM" = recipe-box ] || { echo "realm.json defines realm 'recipe-box'; KEYCLOAK_REALM=$KEYCLOAK_REALM isn't supported" >&2; exit 1; }
   echo "keycloak: creating realm $KEYCLOAK_REALM (then run deploy/keycloak/configure.sh signup)"
   python3 deploy/keycloak/render-realm.py | kcadm create realms -f -
 fi

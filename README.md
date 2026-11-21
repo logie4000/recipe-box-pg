@@ -56,7 +56,7 @@ or use the PowerShell script, which has the same targets: `./dev.ps1 up`,
 
 ```bash
 make env        # .env from .env.example (dev passwords)
-make up         # postgres + keycloak; realm "app" is imported on first start
+make up         # postgres + keycloak; realm "recipe-box" is imported on first start
 make migrate    # db:migrate + db:seed as app_owner, then sqlc generate
 
 # three terminals
@@ -182,7 +182,7 @@ applies to both APIs; the default includes `capacitor://localhost` and
 - Hostnames: the site at `https://<APP_HOST><APP_PATH>/` and Keycloak at
   `AUTH_HOST`, by default `app.<APP_DOMAIN>` (no path) and `auth.<APP_DOMAIN>`.
   Each host needs a DNS record and a TLS certificate, and `oidc.authority` in
-  `web/src/environments/environment.ts` must be `https://<AUTH_HOST>/realms/app`.
+  `web/src/environments/environment.ts` must be `https://<AUTH_HOST>/realms/recipe-box`.
   With `APP_PATH` (e.g. `/recipe-box`), the production `baseHref` in
   `web/angular.json` must be the same path plus `/`; pages, `/api/v1`,
   `/admin` and share links all move under it.
