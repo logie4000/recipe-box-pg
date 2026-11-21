@@ -14,7 +14,7 @@ RSpec.describe Oidc::TokenVerifier do
   end
 
   it "rejects the wrong issuer" do
-    expect { verify(token_for(iss: "https://evil.example/realms/app")) }.to raise_error(JWT::InvalidIssuerError)
+    expect { verify(token_for(iss: "https://evil.example/realms/recipe-box")) }.to raise_error(JWT::InvalidIssuerError)
   end
 
   it "rejects expired tokens" do

@@ -5,6 +5,7 @@
 #   deploy/keycloak/configure.sh google-autolink   # First broker login links by verified email
 #   deploy/keycloak/configure.sh org-ids           # organization claim carries org ids (TENANT_MODE)
 #   deploy/keycloak/configure.sh signup            # self sign-up, approved in the app (realms imported before it)
+#   deploy/keycloak/configure.sh rename-realm      # one-off: rename the old realm "app" to "recipe-box"
 #
 # Uses kcadm.sh inside the running keycloak container.
 set -euo pipefail
@@ -29,6 +30,11 @@ fi
 
 kcadm() { kc_exec /opt/keycloak/bin/kcadm.sh "$@"; }
 
+# This app's realm. It used to be "app" (the template's name); rename-realm
+# moves an existing one over.
+realm=recipe-box
+old_realm=app
+
 login() {
   kc_exec sh -c \
     '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD"' \
@@ -38,31 +44,31 @@ login() {
 google_autolink() {
   local flow="first broker login - link by email"
   local path="authentication/flows/${flow// /%20}" # the alias goes in the URL, so encode its spaces
-  if ! kcadm get "authentication/flows" -r app --fields alias --format csv --noquotes | grep -qx "$flow"; then
-    kcadm create authentication/flows -r app -s "alias=$flow" -s providerId=basic-flow -s topLevel=true -s builtIn=false
+  if ! kcadm get "authentication/flows" -r "$realm" --fields alias --format csv --noquotes | grep -qx "$flow"; then
+    kcadm create authentication/flows -r "$realm" -s "alias=$flow" -s providerId=basic-flow -s topLevel=true -s builtIn=false
   fi
   # Add whichever step is missing (also repairs a flow an earlier failed run left empty).
   local have
-  have=$(kcadm get "$path/executions" -r app --fields providerId --format csv --noquotes)
+  have=$(kcadm get "$path/executions" -r "$realm" --fields providerId --format csv --noquotes)
   for provider in idp-create-user-if-unique idp-auto-link; do
-    grep -qx "$provider" <<<"$have" || kcadm create "$path/executions/execution" -r app -s "provider=$provider"
+    grep -qx "$provider" <<<"$have" || kcadm create "$path/executions/execution" -r "$realm" -s "provider=$provider"
   done
   # both steps ALTERNATIVE: create the user, or link to the existing one with the same (verified) email
-  for id in $(kcadm get "$path/executions" -r app --fields id --format csv --noquotes); do
-    kcadm update "$path/executions" -r app -b "{\"id\":\"$id\",\"requirement\":\"ALTERNATIVE\"}"
+  for id in $(kcadm get "$path/executions" -r "$realm" --fields id --format csv --noquotes); do
+    kcadm update "$path/executions" -r "$realm" -b "{\"id\":\"$id\",\"requirement\":\"ALTERNATIVE\"}"
   done
-  kcadm update identity-provider/instances/google -r app -s "firstBrokerLoginFlowAlias=$flow" -s trustEmail=true
+  kcadm update identity-provider/instances/google -r "$realm" -s "firstBrokerLoginFlowAlias=$flow" -s trustEmail=true
   echo "google IdP now uses '$flow'. Enable the IdP and set its client id/secret in the admin console."
 }
 
 org_ids() {
   local scope mapper
-  scope=$(kcadm get client-scopes -r app --fields id,name --format csv --noquotes | awk -F, '$2=="organization"{print $1}')
-  [ -n "$scope" ] || { echo "no 'organization' client scope in realm app" >&2; exit 1; }
-  mapper=$(kcadm get "client-scopes/$scope/protocol-mappers/models" -r app --fields id,protocolMapper --format csv --noquotes \
+  scope=$(kcadm get client-scopes -r "$realm" --fields id,name --format csv --noquotes | awk -F, '$2=="organization"{print $1}')
+  [ -n "$scope" ] || { echo "no 'organization' client scope in realm $realm" >&2; exit 1; }
+  mapper=$(kcadm get "client-scopes/$scope/protocol-mappers/models" -r "$realm" --fields id,protocolMapper --format csv --noquotes \
     | awk -F, '$2=="oidc-organization-membership-mapper"{print $1}' | head -1)
   [ -n "$mapper" ] || { echo "no organization membership mapper found" >&2; exit 1; }
-  kcadm update "client-scopes/$scope/protocol-mappers/models/$mapper" -r app \
+  kcadm update "client-scopes/$scope/protocol-mappers/models/$mapper" -r "$realm" \
     -s 'config."addOrganizationId"=true' -s 'config."jsonType.label"=JSON'
   echo "organization claim now includes ids: {\"acme\": {\"id\": \"...\"}}"
 }
@@ -72,15 +78,37 @@ org_ids() {
 # until an admin approves them on the app's Approvals page, which grants
 # "reader" through the rails-admin client's service account.
 signup() {
-  kcadm update realms/app -s registrationAllowed=true
+  kcadm update "realms/$realm" -s registrationAllowed=true
   local client
-  client=$(kcadm get clients -r app -q clientId=rails-admin --fields id --format csv --noquotes)
-  [ -n "$client" ] || { echo "no rails-admin client in realm app" >&2; exit 1; }
-  kcadm update "clients/$client" -r app -s serviceAccountsEnabled=true
-  kcadm add-roles -r app --uusername service-account-rails-admin --cclientid realm-management     --rolename view-users --rolename manage-users
+  client=$(kcadm get clients -r "$realm" -q clientId=rails-admin --fields id --format csv --noquotes)
+  [ -n "$client" ] || { echo "no rails-admin client in realm $realm" >&2; exit 1; }
+  kcadm update "clients/$client" -r "$realm" -s serviceAccountsEnabled=true
+  kcadm add-roles -r "$realm" --uusername service-account-rails-admin --cclientid realm-management     --rolename view-users --rolename manage-users
   # New accounts must not be approved automatically.
-  kcadm remove-roles -r app --rname default-roles-app --rolename reader --rolename editor --rolename admin 2>/dev/null || true
+  kcadm remove-roles -r "$realm" --rname "default-roles-$realm" --rolename reader --rolename editor --rolename admin 2>/dev/null || true
   echo "registration on; rails-admin can approve (grant reader) and decline (disable) users."
+}
+
+# Renames realm "app" to "recipe-box" in place. Users (with their ids, which
+# the app's database stores as owners), passwords, roles, Google links,
+# clients and settings all stay; only the URLs change
+# (/realms/recipe-box/...), so everyone signs in once more. Run it right
+# before starting the app with the new realm name (deploy.sh would otherwise
+# create an empty "recipe-box" realm next to the old one).
+rename_realm() {
+  if kcadm get "realms/$realm" --fields realm >/dev/null 2>&1; then
+    echo "realm $realm already exists, nothing to rename"
+  else
+    kcadm get "realms/$old_realm" --fields realm >/dev/null || { echo "no realm $old_realm to rename" >&2; exit 1; }
+    kcadm update "realms/$old_realm" -s "realm=$realm"
+    echo "realm $old_realm renamed to $realm"
+  fi
+  # Keycloak keeps the default role's old name; give it the one realm.json uses.
+  if kcadm get "roles/default-roles-$old_realm" -r "$realm" --fields name >/dev/null 2>&1; then
+    kcadm update "roles/default-roles-$old_realm" -r "$realm" -s "name=default-roles-$realm"
+    echo "role default-roles-$old_realm renamed to default-roles-$realm"
+  fi
+  echo "Google sign-in: add https://<auth host>/realms/$realm/broker/google/endpoint to the OAuth client's redirect URIs."
 }
 
 login
@@ -88,5 +116,6 @@ case "${1:-}" in
   google-autolink) google_autolink ;;
   org-ids) org_ids ;;
   signup) signup ;;
-  *) echo "usage: $0 google-autolink|org-ids|signup" >&2; exit 2 ;;
+  rename-realm) rename_realm ;;
+  *) echo "usage: $0 google-autolink|org-ids|signup|rename-realm" >&2; exit 2 ;;
 esac

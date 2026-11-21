@@ -53,7 +53,7 @@ services:
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-write-api:${IMAGE_TAG:-latest}
     environment:
-      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/app
+      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/recipe-box
       ADMIN_REDIRECT_URI: https://${APP_HOST:-app.${APP_DOMAIN}}${APP_PATH:-}/admin/auth/keycloak/callback
       ADMIN_POST_LOGOUT_URI: https://${APP_HOST:-app.${APP_DOMAIN}}${APP_PATH:-}/admin/login
       # Photos on S3 (instance role: s3:PutObject, s3:GetObject, s3:DeleteObject
@@ -70,7 +70,7 @@ services:
     profiles: !reset []
     image: ${ECR_REGISTRY}/${COMPOSE_PROJECT_NAME:-webapp}-read-api:${IMAGE_TAG:-latest}
     environment:
-      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/app
+      OIDC_ISSUER: https://${AUTH_HOST:-auth.${APP_DOMAIN}}/realms/recipe-box
       LOG_FORMAT: json
       # Photos on S3 (instance role: s3:GetObject on the bucket).
       IMAGE_STORAGE: ${IMAGE_STORAGE:-s3}
