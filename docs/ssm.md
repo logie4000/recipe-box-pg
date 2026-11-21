@@ -87,6 +87,25 @@ aws ssm put-parameter --name /webapp/recipe-box/RATE_LIMIT_UPLOADS_PER_MINUTE --
 Then deploy, so the containers restart with the new `.env`. To remove a
 setting: `aws ssm delete-parameter --name /webapp/recipe-box/<KEY>`.
 
+### Email (Amazon SES)
+
+Keycloak's mail server (email verification after sign-up, "Forgot
+password?") comes from `KC_SMTP_HOST`, `KC_SMTP_PORT`, `KC_SMTP_USER`,
+`KC_SMTP_PASSWORD` (SecureString) and `KC_SMTP_FROM`, plus optional
+`KC_SMTP_FROM_NAME`, `KC_SMTP_REPLY_TO` and `KC_SMTP_SSL`. Every deploy
+applies them to the realm while `KC_SMTP_HOST` is set. From PowerShell:
+
+```powershell
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/KC_SMTP_HOST --type String --value 'email-smtp.us-east-1.amazonaws.com' --overwrite
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/KC_SMTP_FROM --type String --value 'no-reply@specialbrewsoftware.com' --overwrite
+$smtpPassword = Read-Host "SES SMTP password" -MaskInput
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/KC_SMTP_PASSWORD --type SecureString --value $smtpPassword --overwrite
+```
+
+The SES setup and the full list of commands: `docs/email.md`. Values can't
+contain spaces (`.env` is loaded by bash), so leave `KC_SMTP_FROM_NAME` at its
+default.
+
 To see what's stored (names only):
 
 ```bash

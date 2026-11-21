@@ -11,6 +11,11 @@ class AuthUser
   def email = claims["email"]
   def name = claims["name"] || claims["preferred_username"]
 
+  # Keycloak has checked the address: a Google sign-in (trustEmail on the IdP)
+  # or a password account that clicked the verification link. Only a literal
+  # JSON true counts, and there has to be an address to have verified.
+  def email_verified? = claims["email_verified"] == true && email.present?
+
   # Realm roles plus client roles granted on the API audience.
   def roles
     @roles ||= begin

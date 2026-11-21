@@ -4,7 +4,10 @@ module Api
     #
     #   POST   /api/v1/account-requests              the caller asks to be let in (the web
     #                                                app does this on sign-in for an
-    #                                                account without a role)
+    #                                                account without a role). If Keycloak
+    #                                                has verified their email, they get
+    #                                                reader straight away; otherwise a
+    #                                                request waits for an admin.
     #   POST   /api/v1/account-requests/:id/approve  admin: grant reader, drop the request
     #   DELETE /api/v1/account-requests/:id          admin: disable the account, drop it
     #
@@ -21,6 +24,7 @@ module Api
       def create
         authorize AccountRequest
         return render json: { status: "approved" } if current_user.reader?
+        return approve_self if current_user.email_verified?
 
         account_request = AccountRequest.find_or_initialize_by(user_sub: current_user_sub)
         created = account_request.new_record?
@@ -45,6 +49,15 @@ module Api
       end
 
       private
+        # Verified email: let them in. Keycloak goes first, so if it fails
+        # (502) nothing changes here. Any request they filed before verifying
+        # is dropped; RLS lets them delete their own row.
+        def approve_self
+          KeycloakAdmin.current.grant_realm_role(current_user_sub, APPROVED_ROLE)
+          AccountRequest.where(user_sub: current_user_sub).destroy_all
+          render json: { status: "approved" }
+        end
+
         def find_request
           AccountRequest.find(params[:id]).tap { |r| authorize r }
         end

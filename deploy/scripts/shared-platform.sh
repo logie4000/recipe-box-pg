@@ -20,8 +20,13 @@
 # KC_GOOGLE_CLIENT_ID / KC_GOOGLE_CLIENT_SECRET
 #                           optional: "Sign in with Google" for this realm,
 #                           (re)applied on every run while they are set
+# KC_SMTP_HOST, KC_SMTP_FROM (+ KC_SMTP_PORT, KC_SMTP_USER, KC_SMTP_PASSWORD,
+# KC_SMTP_FROM_NAME, KC_SMTP_REPLY_TO, KC_SMTP_SSL)
+#                           optional: the realm's mail server, with email
+#                           verification and password reset (docs/email.md),
+#                           (re)applied on every run while KC_SMTP_HOST is set
 #
-# Realm settings after that (sign-up, Google) are made with
+# Realm settings after that (sign-up, Google, email) are made with
 # deploy/keycloak/configure.sh, which also works against the shared Keycloak.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -78,8 +83,9 @@ else
 fi
 
 # 3. Google sign-in, while KC_GOOGLE_CLIENT_ID is set (so changing the secret
-#    in SSM and deploying again updates it). New Google accounts still wait
-#    for approval like any other sign-up. Same as Sweat Equity's.
+#    in SSM and deploying again updates it). Google vouches for the email, so
+#    the app approves new Google accounts like verified password sign-ups.
+#    Same as Sweat Equity's.
 if [ -n "${KC_GOOGLE_CLIENT_ID:-}" ]; then
   : "${KC_GOOGLE_CLIENT_SECRET:?set KC_GOOGLE_CLIENT_SECRET with KC_GOOGLE_CLIENT_ID}"
   echo "keycloak: Google sign-in on for realm $KEYCLOAK_REALM"
@@ -107,7 +113,21 @@ if [ -n "${KC_GOOGLE_CLIENT_ID:-}" ]; then
   fi
 fi
 
-# 4. Sign-in page theme (deploy/keycloak/themes/recipe-box), copied into the
+# 4. Email, while KC_SMTP_HOST is set (docs/email.md): the realm's SMTP
+#    server, and with it email verification for password sign-ups and
+#    "Forgot password?". Unset changes nothing, and verifyEmail is never
+#    turned on without a mail server (nobody could finish signing up).
+#    smtp-settings.py builds the JSON from the environment; the password
+#    goes through stdin, never a command line.
+if [ -n "${KC_SMTP_HOST:-}" ]; then
+  : "${KC_SMTP_FROM:?set KC_SMTP_FROM (the sender address) with KC_SMTP_HOST}"
+  echo "keycloak: email on for realm $KEYCLOAK_REALM via $KC_SMTP_HOST (verify email, forgot password)"
+  python3 deploy/keycloak/smtp-settings.py | kcadm update "realms/$KEYCLOAK_REALM" --merge -f -
+else
+  echo "keycloak: no KC_SMTP_HOST, realm $KEYCLOAK_REALM's email settings left as they are"
+fi
+
+# 5. Sign-in page theme (deploy/keycloak/themes/recipe-box), copied into the
 #    directory the shared Keycloak mounts as /opt/keycloak/themes. Keycloak
 #    caches themes, so it is restarted when the files changed: about half a
 #    minute in which no site on this Keycloak can sign in. Nothing changed,

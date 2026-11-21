@@ -66,6 +66,17 @@ services:
       retries: 30
       start_period: 20s
 
+  # Local dev only: catches the mail Keycloak sends (email verification,
+  # password reset); read it at http://127.0.0.1:8025. The realm is pointed
+  # at it by deploy/keycloak/configure.sh email (KC_SMTP_HOST=mailpit in
+  # .env). The "dev" profile keeps it out of production; `make up` names it.
+  mailpit:
+    profiles: ["dev"]
+    image: axllent/mailpit:${MAILPIT_VERSION:-v1.33.1}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+
   write-api:
     profiles: ["apps"]
     build: ../write-api

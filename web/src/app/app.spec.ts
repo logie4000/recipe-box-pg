@@ -10,9 +10,11 @@ import { AuthService } from './core/auth.service';
 describe('App', () => {
   const authenticated = signal(false);
   const roles = signal<string[]>([]);
+  const refreshRoles = vi.fn<() => Promise<void>>();
   let backend: HttpTestingController;
 
   beforeEach(async () => {
+    refreshRoles.mockReset().mockResolvedValue(undefined);
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -27,6 +29,7 @@ describe('App', () => {
             isPending: computed(() => authenticated() && !roles().length),
             isAdmin: computed(() => roles().includes('admin')),
             displayName: computed(() => 'Alice'),
+            refreshRoles,
             login: vi.fn(),
             logout: vi.fn(),
           },
@@ -89,5 +92,43 @@ describe('App', () => {
     expect(inert.map((e) => e.getAttribute('title'))).toEqual(
       Array(2).fill('Waiting for approval'),
     );
+  });
+
+  it('does not refresh the token while the request is pending', async () => {
+    authenticated.set(true);
+    roles.set([]);
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    backend.expectOne('/api/v1/account-requests').flush({ status: 'pending' });
+    expect(refreshRoles).not.toHaveBeenCalled();
+  });
+
+  it('refreshes the token when a verified email is let in at once', async () => {
+    authenticated.set(true);
+    roles.set([]);
+    refreshRoles.mockImplementation(async () => roles.set(['reader']));
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+
+    backend.expectOne('/api/v1/account-requests').flush({ status: 'approved' });
+    await fixture.whenStable();
+
+    expect(refreshRoles).toHaveBeenCalledTimes(1);
+    expect(nav(fixture).querySelector('a[href="/recipes"]')).not.toBeNull();
+    expect(nav(fixture).querySelectorAll('.disabled').length).toBe(0);
+  });
+
+  it('stays pending, without an error, when the refresh fails', async () => {
+    authenticated.set(true);
+    roles.set([]);
+    refreshRoles.mockRejectedValue(new Error('refresh failed'));
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+
+    backend.expectOne('/api/v1/account-requests').flush({ status: 'approved' });
+    await fixture.whenStable();
+
+    expect(refreshRoles).toHaveBeenCalledTimes(1);
+    expect(nav(fixture).querySelectorAll('.disabled').length).toBe(2);
   });
 });

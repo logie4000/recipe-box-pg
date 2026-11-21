@@ -17,15 +17,24 @@ export class App {
   private requested = false;
 
   constructor() {
-    // A new account asks to be let in as soon as it signs in, so it shows up
-    // on the admin's Approvals page. Asking again is harmless.
+    // A new account asks to be let in as soon as it signs in. With a verified
+    // email the API lets it in at once ("approved"); otherwise it shows up on
+    // the admin's Approvals page. Asking again is harmless.
     effect(() => {
       if (this.auth.isPending() && !this.requested) {
         this.requested = true;
         // Best effort: if it fails, the next sign-in tries again.
-        this.http
-          .post(`${environment.api}/account-requests`, {})
-          .subscribe({ error: () => undefined });
+        this.http.post<{ status?: string }>(`${environment.api}/account-requests`, {}).subscribe({
+          next: (res) => {
+            if (res?.status === 'approved') {
+              // The current token predates the new role: fetch a fresh one.
+              // If that fails, "Check again" on the home page or the next
+              // sign-in picks it up.
+              this.auth.refreshRoles().catch(() => undefined);
+            }
+          },
+          error: () => undefined,
+        });
       }
     });
   }

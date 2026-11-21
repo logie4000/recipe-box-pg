@@ -36,6 +36,55 @@ RSpec.describe "/api/v1/account-requests" do
       expect(requests_as_admin).to be_empty
     end
 
+    it "files a request when the email isn't verified, without calling Keycloak" do
+      [ nil, false, "true" ].each do |claim|
+        headers = auth_headers(sub: "new-sub", roles: [], email: "nina@example.test", email_verified: claim)
+        post "/api/v1/account-requests", headers: headers
+        expect(response.parsed_body).to include("status" => "pending")
+      end
+
+      expect(keycloak).not_to have_received(:grant_realm_role)
+      expect(requests_as_admin.map(&:user_sub)).to eq([ "new-sub" ])
+    end
+
+    it "files a request for a verified claim with no email to go with it" do
+      post "/api/v1/account-requests", headers: auth_headers(sub: "new-sub", roles: [], email: nil, email_verified: true)
+      expect(response.parsed_body).to include("status" => "pending")
+      expect(keycloak).not_to have_received(:grant_realm_role)
+    end
+
+    context "with a verified email" do
+      let(:verified) { auth_headers(sub: "new-sub", roles: [], email: "nina@example.test", email_verified: true) }
+
+      it "grants reader in Keycloak straight away and files nothing" do
+        post "/api/v1/account-requests", headers: verified
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to eq("status" => "approved")
+        expect(keycloak).to have_received(:grant_realm_role).with("new-sub", "reader")
+        expect(requests_as_admin).to be_empty
+      end
+
+      it "drops the request filed before the email was verified" do
+        file_request
+        expect(requests_as_admin.size).to eq(1)
+
+        post "/api/v1/account-requests", headers: verified
+
+        expect(response.parsed_body).to eq("status" => "approved")
+        expect(requests_as_admin).to be_empty
+      end
+
+      it "keeps things as they were when Keycloak fails" do
+        file_request
+        allow(keycloak).to receive(:grant_realm_role).and_raise(KeycloakAdmin::Error, "Keycloak unreachable")
+        post "/api/v1/account-requests", headers: verified
+
+        expect(response).to have_http_status(:bad_gateway)
+        expect(requests_as_admin.map(&:user_sub)).to eq([ "new-sub" ])
+      end
+    end
+
     it "requires a token" do
       post "/api/v1/account-requests"
       expect(response).to have_http_status(:unauthorized)

@@ -49,8 +49,9 @@ export class AuthService {
   readonly roles = computed(() => this.accessPayload().realm_access?.roles ?? []);
   readonly canEdit = computed(() => this.roles().some((r) => r === 'editor' || r === 'admin'));
   /**
-   * Let in by an admin. Anyone can sign up, but a new account has no role and
-   * can only browse until it is approved (which grants reader).
+   * Let in. Anyone can sign up, but a new account has no role and can only
+   * browse until it gets reader: at once with a verified email, otherwise
+   * when an admin approves it.
    */
   readonly isMember = computed(() =>
     this.roles().some((r) => r === 'reader' || r === 'editor' || r === 'admin'),

@@ -2,7 +2,7 @@
 # Bash (or WSL). PowerShell users: ./dev.ps1 <target> does the same things.
 #
 #   make env      create .env from .env.example
-#   make up       postgres + keycloak (docker compose), realm auto-imported
+#   make up       postgres + keycloak + mailpit (docker compose), realm auto-imported
 #   make migrate  rails db:migrate db:seed (as app_owner), then sqlc generate
 #   make rails    write-api on :3000       make api   read-api on :8080
 #   make web      ng serve on :4200 (/api/v1: GET -> :8080, writes -> :3000; /admin -> :3000)
@@ -34,12 +34,13 @@ help: ## list targets
 env: ## create .env from .env.example (keeps an existing .env)
 	@if [ -f .env ]; then echo ".env exists, leaving it alone"; else cp .env.example .env && echo "created .env"; fi
 
-up: ## start postgres + keycloak and wait until healthy
-	$(COMPOSE) up -d --wait postgres keycloak
+up: ## start postgres + keycloak + mailpit and wait until healthy
+	$(COMPOSE) up -d --wait postgres keycloak mailpit
 	@echo "Keycloak: http://localhost:$${KEYCLOAK_PORT:-8081} (admin console: /admin)"
+	@echo "Mailpit:  http://localhost:$${MAILPIT_PORT:-8025} (mail from Keycloak, once deploy/keycloak/configure.sh email has run)"
 
 down: ## stop containers (data volume kept)
-	$(COMPOSE) --profile apps down
+	$(COMPOSE) --profile apps --profile dev down
 
 logs: ## follow container logs
 	$(COMPOSE) logs -f
@@ -110,4 +111,4 @@ restore-drill: ## restore the newest S3 dump into a scratch container and check 
 
 reset-db: ## DANGER: delete the local postgres volume and start over
 	@read -r -p "Delete the local database volume? [y/N] " ans && [ "$$ans" = y ]
-	$(COMPOSE) --profile apps down -v
+	$(COMPOSE) --profile apps --profile dev down -v

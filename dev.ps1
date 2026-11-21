@@ -4,7 +4,7 @@
 
 .EXAMPLE
   ./dev.ps1 env        # create .env from .env.example
-  ./dev.ps1 up         # postgres + keycloak
+  ./dev.ps1 up         # postgres + keycloak + mailpit (local mail at :8025)
   ./dev.ps1 migrate    # rails db:migrate db:seed, then sqlc generate
   ./dev.ps1 rails      # write-api :3000   (separate terminal)
   ./dev.ps1 api        # read-api  :8080   (separate terminal)
@@ -68,8 +68,12 @@ switch ($Task) {
     if (Test-Path $EnvFile) { Write-Host '.env exists, leaving it alone' }
     else { Copy-Item (Join-Path $Root '.env.example') $EnvFile; Write-Host 'created .env' }
   }
-  'up' { Compose up -d --wait postgres keycloak; Write-Host "Keycloak: http://localhost:$(if ($env:KEYCLOAK_PORT) { $env:KEYCLOAK_PORT } else { 8081 })" }
-  'down' { Compose --profile apps down }
+  'up' {
+    Compose up -d --wait postgres keycloak mailpit
+    Write-Host "Keycloak: http://localhost:$(if ($env:KEYCLOAK_PORT) { $env:KEYCLOAK_PORT } else { 8081 })"
+    Write-Host "Mail (Mailpit): http://localhost:$(if ($env:MAILPIT_PORT) { $env:MAILPIT_PORT } else { 8025 })"
+  }
+  'down' { Compose --profile apps --profile dev down }
   'logs' { Compose logs -f }
   'psql' { Compose exec -e "PGPASSWORD=$env:APP_OWNER_PASSWORD" postgres psql -h localhost -U app_owner -d $env:APP_DB_NAME }
   'migrate' { In-Dir 'write-api' { ruby bin/rails db:migrate; ruby bin/rails db:seed }; Gen }
