@@ -107,6 +107,9 @@ services:
       IMAGE_S3_BUCKET: ${IMAGE_S3_BUCKET:-}
       IMAGE_S3_PREFIX: ${IMAGE_S3_PREFIX:-}
       AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Sign-up verification codes, sent through Amazon SES as the instance
+      # role (docs/email.md). Unset: password sign-ups wait for an admin.
+      MAIL_FROM: ${MAIL_FROM:-}
     volumes:
       - images:/srv/images
     ports:

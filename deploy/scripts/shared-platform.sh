@@ -17,6 +17,9 @@
 # APP_HOST, APP_PATH, OIDC_ADMIN_CLIENT_SECRET   realm.json placeholders
 # KC_THEMES_DIR             where the shared Keycloak reads site themes from
 #                           (default /srv/keycloak/themes, infra-core's)
+# KC_GOOGLE_CLIENT_ID / KC_GOOGLE_CLIENT_SECRET
+#                           optional: "Sign in with Google" for this realm,
+#                           (re)applied on every run while they are set
 #
 # Realm settings after that (sign-up, Google) are made with
 # deploy/keycloak/configure.sh, which also works against the shared Keycloak.
@@ -74,7 +77,37 @@ else
   python3 deploy/keycloak/render-realm.py | kcadm create realms -f -
 fi
 
-# 3. Sign-in page theme (deploy/keycloak/themes/recipe-box), copied into the
+# 3. Google sign-in, while KC_GOOGLE_CLIENT_ID is set (so changing the secret
+#    in SSM and deploying again updates it). Google vouches for the email, so
+#    the app approves new Google accounts by itself. Same as Sweat Equity's.
+if [ -n "${KC_GOOGLE_CLIENT_ID:-}" ]; then
+  : "${KC_GOOGLE_CLIENT_SECRET:?set KC_GOOGLE_CLIENT_SECRET with KC_GOOGLE_CLIENT_ID}"
+  echo "keycloak: Google sign-in on for realm $KEYCLOAK_REALM"
+  r=(-r "$KEYCLOAK_REALM")
+  # First broker login that links a Google sign-in to the existing account
+  # with the same (Google-verified) email, or creates one.
+  flow="first broker login - link by email"
+  flow_path="authentication/flows/${flow// /%20}"
+  if ! kcadm get authentication/flows "${r[@]}" --fields alias --format csv --noquotes | grep -qx "$flow"; then
+    kcadm create authentication/flows "${r[@]}" -s "alias=$flow" -s providerId=basic-flow -s topLevel=true -s builtIn=false
+  fi
+  have=$(kcadm get "$flow_path/executions" "${r[@]}" --fields providerId --format csv --noquotes)
+  for provider in idp-create-user-if-unique idp-auto-link; do
+    grep -qx "$provider" <<<"$have" || kcadm create "$flow_path/executions/execution" "${r[@]}" -s "provider=$provider"
+  done
+  for id in $(kcadm get "$flow_path/executions" "${r[@]}" --fields id --format csv --noquotes); do
+    kcadm update "$flow_path/executions" "${r[@]}" -b "{\"id\":\"$id\",\"requirement\":\"ALTERNATIVE\"}"
+  done
+
+  if current=$(kcadm get identity-provider/instances/google "${r[@]}" 2>/dev/null); then
+    printf '%s' "$current" | python3 deploy/keycloak/google-idp.py \
+      | kcadm update identity-provider/instances/google "${r[@]}" -f -
+  else
+    python3 deploy/keycloak/google-idp.py </dev/null | kcadm create identity-provider/instances "${r[@]}" -f -
+  fi
+fi
+
+# 4. Sign-in page theme (deploy/keycloak/themes/recipe-box), copied into the
 #    directory the shared Keycloak mounts as /opt/keycloak/themes. Keycloak
 #    caches themes, so it is restarted when the files changed: about half a
 #    minute in which no site on this Keycloak can sign in. Nothing changed,

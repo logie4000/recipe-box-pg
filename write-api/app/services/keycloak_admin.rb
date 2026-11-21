@@ -1,4 +1,4 @@
-# The few Keycloak Admin REST calls the approval flow needs, made as the
+# The few Keycloak Admin REST calls sign-up and approval need, made as the
 # rails-admin client's service account (realm-management view-users and
 # manage-users; `deploy/keycloak/configure.sh signup` sets that up).
 #
@@ -27,6 +27,17 @@ class KeycloakAdmin
     available = request(:get, "users/#{user_id}/role-mappings/realm/available")
     role = available.find { |r| r["name"] == role_name }
     request(:post, "users/#{user_id}/role-mappings/realm", [ role.slice("id", "name") ]) if role
+  end
+
+  # Marks the user's email verified, but only while it is still `email` (the
+  # address the code went to); returns false if it has changed since. The
+  # whole user goes back, since a partial update can drop profile fields.
+  def mark_email_verified(user_id, email)
+    user = request(:get, "users/#{user_id}")
+    return false unless user["email"].to_s.casecmp?(email.to_s)
+
+    request(:put, "users/#{user_id}", user.merge("emailVerified" => true)) unless user["emailVerified"]
+    true
   end
 
   # Turns a declined user away: they can't sign in again, and open sessions

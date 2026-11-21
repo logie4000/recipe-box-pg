@@ -87,6 +87,23 @@ aws ssm put-parameter --name /webapp/recipe-box/RATE_LIMIT_UPLOADS_PER_MINUTE --
 Then deploy, so the containers restart with the new `.env`. To remove a
 setting: `aws ssm delete-parameter --name /webapp/recipe-box/<KEY>`.
 
+A value may contain spaces or characters like `<` and `$`:
+`env-from-ssm.sh` writes it in single quotes, which both bash and docker
+compose read literally. A value with a single quote (or a newline) can't be
+written that way, and the deploy stops with an error naming the key.
+
+### Sign-up email (Amazon SES)
+
+The write-api emails password sign-ups a six-digit code once `MAIL_FROM` is
+set. From PowerShell:
+
+```powershell
+aws ssm put-parameter --region us-east-1 --name /webapp/recipe-box/MAIL_FROM --type String --value 'Recipe Box <no-reply@specialbrew.net>' --overwrite
+```
+
+The SES setup (domain identity, production access, the instance role's
+permission) comes first: `docs/email.md`.
+
 To see what's stored (names only):
 
 ```bash

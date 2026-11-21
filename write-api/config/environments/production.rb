@@ -48,21 +48,13 @@ Rails.application.configure do
   # Active Job uses Solid Queue (set in config/application.rb). Run it inside
   # Puma with SOLID_QUEUE_IN_PUMA=1 (see config/puma.rb) or as bin/jobs.
 
-  # Ignore bad email addresses and do not raise email delivery errors.
-  # Set this to true and configure the email server for immediate delivery to raise delivery errors.
-  # config.action_mailer.raise_delivery_errors = false
+  # Sign-up verification codes go out through Amazon SES as the instance role
+  # (config/initializers/mail.rb). Failures raise, so the user is told.
+  config.action_mailer.delivery_method = :ses
+  config.action_mailer.raise_delivery_errors = true
 
   # Set host to be used by links generated in mailer templates.
   config.action_mailer.default_url_options = { host: ENV.fetch("APP_HOST", "app.example.com"), protocol: "https" }
-
-  # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
-  # config.action_mailer.smtp_settings = {
-  #   user_name: Rails.application.credentials.dig(:smtp, :user_name),
-  #   password: Rails.application.credentials.dig(:smtp, :password),
-  #   address: "smtp.example.com",
-  #   port: 587,
-  #   authentication: :plain
-  # }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).

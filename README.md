@@ -34,6 +34,7 @@ the other. Rule of thumb: **business rules for writes in Rails, read queries in 
 | `docs/multi-tenancy.md` | Optional `TENANT_MODE=on`. |
 | `docs/recipes.md` | Recipe Box: `recipes` table, per-owner isolation (RLS), public or private recipes, photos, endpoints, web pages. |
 | `docs/ssm.md` | Production settings in SSM Parameter Store: first-time setup, changing a setting. |
+| `docs/email.md` | Sign-up email: the six-digit code a password sign-up enters, sent through Amazon SES; setup, testing, local dev. |
 | `.github/workflows/ci.yml` | RSpec + RuboCop + schema check, go vet/test + sqlc diff, ng lint/test/build. |
 | `.github/workflows/images.yml` | After CI passes on main: build the production images and push them to ECR (`docs/ecr.md`). |
 | `Makefile`, `dev.ps1` | Dev commands (Git Bash / PowerShell). |
@@ -145,11 +146,35 @@ Keycloak session. An admin gem (Avo, Madmin, Administrate) can mount under
 ## Social login
 
 Keycloak brokers Google. The `google` identity provider is in `realm.json`
-but **disabled**. To use it, set `KC_GOOGLE_CLIENT_ID` / `KC_GOOGLE_CLIENT_SECRET`,
+but **disabled**. In production, put the OAuth client's id and secret in SSM
+and deploy:
+
+```bash
+aws ssm put-parameter --name /webapp/recipe-box/KC_GOOGLE_CLIENT_ID --type String --value '<client id>' --overwrite
+aws ssm put-parameter --name /webapp/recipe-box/KC_GOOGLE_CLIENT_SECRET --type SecureString --value '<client secret>' --overwrite
+```
+
+On a shared Keycloak, `deploy.sh` (through `shared-platform.sh`) then turns
+the realm's `google` provider on with those values and sets up First Broker
+Login to link accounts by verified email, on every deploy, so a new secret
+only needs another deploy. To turn Google off, disable the provider in the
+admin console and delete the two parameters. The Google client needs the
+redirect URI `https://<AUTH_HOST>/realms/recipe-box/broker/google/endpoint`.
+Locally, set the two values in `.env` (read at the first realm import),
 enable the provider in the admin console, and run
-`deploy/keycloak/configure.sh google-autolink` so First Broker Login links
-accounts by verified email. The SPA's "Sign in with Google" button passes
+`deploy/keycloak/configure.sh google-autolink`. The SPA's "Sign in with Google" button passes
 `kc_idp_hint=google`.
+
+## Sign-up
+
+Anyone can create an account; a new one has no app role until it gets
+`reader`. A Google sign-in gets it straight away (Google has verified the
+email). A password sign-up is emailed a six-digit code by the write-api
+(Amazon SES, `MAIL_FROM` in SSM) and enters it on the home page. Without
+`MAIL_FROM`, password sign-ups wait for an admin on the Approvals page, who
+can also approve anyone still waiting for a code. Setup: `docs/email.md`.
+Locally, `make rails` writes the emails to `write-api/tmp/mails` once
+`MAIL_FROM` is set in `.env`.
 
 ## API versioning and mobile
 

@@ -74,10 +74,12 @@ org_ids() {
   echo "organization claim now includes ids: {\"acme\": {\"id\": \"...\"}}"
 }
 
-# Sign-up with approval (also in realm.json, for new installs). Anyone can
-# register; new accounts get no app role, so they can browse but not write
-# until an admin approves them on the app's Approvals page, which grants
-# "reader" through the rails-admin client's service account.
+# Self sign-up (also in realm.json, for new installs). Anyone can register;
+# new accounts get no app role from Keycloak. The app grants "reader" through
+# the rails-admin client's service account: by itself for accounts with a
+# verified email (Google sign-ins, or password sign-ups that enter the code
+# the app emails them), otherwise when an admin approves them on the app's
+# Approvals page.
 signup() {
   kcadm update "realms/$realm" -s registrationAllowed=true
   local client
@@ -85,7 +87,7 @@ signup() {
   [ -n "$client" ] || { echo "no rails-admin client in realm $realm" >&2; exit 1; }
   kcadm update "clients/$client" -r "$realm" -s serviceAccountsEnabled=true
   kcadm add-roles -r "$realm" --uusername service-account-rails-admin --cclientid realm-management     --rolename view-users --rolename manage-users
-  # New accounts must not be approved automatically.
+  # "reader" comes from the app (above), never from the default role.
   kcadm remove-roles -r "$realm" --rname "default-roles-$realm" --rolename reader --rolename editor --rolename admin 2>/dev/null || true
   echo "registration on; rails-admin can approve (grant reader) and decline (disable) users."
 }
