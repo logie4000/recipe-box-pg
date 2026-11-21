@@ -15,6 +15,8 @@
 #                           a master-realm admin of that Keycloak (only used
 #                           to add the realm the first time)
 # APP_HOST, APP_PATH, OIDC_ADMIN_CLIENT_SECRET   realm.json placeholders
+# KC_THEMES_DIR             where the shared Keycloak reads site themes from
+#                           (default /srv/keycloak/themes, infra-core's)
 #
 # Realm settings after that (sign-up, Google) are made with
 # deploy/keycloak/configure.sh, which also works against the shared Keycloak.
@@ -70,4 +72,37 @@ else
   [ "$KEYCLOAK_REALM" = recipe-box ] || { echo "realm.json defines realm 'recipe-box'; KEYCLOAK_REALM=$KEYCLOAK_REALM isn't supported" >&2; exit 1; }
   echo "keycloak: creating realm $KEYCLOAK_REALM (then run deploy/keycloak/configure.sh signup)"
   python3 deploy/keycloak/render-realm.py | kcadm create realms -f -
+fi
+
+# 3. Sign-in page theme (deploy/keycloak/themes/recipe-box), copied into the
+#    directory the shared Keycloak mounts as /opt/keycloak/themes. Keycloak
+#    caches themes, so it is restarted when the files changed: about half a
+#    minute in which no site on this Keycloak can sign in. Nothing changed,
+#    nothing restarts. The realm is pointed at the theme only once Keycloak
+#    has it.
+themes_dir="${KC_THEMES_DIR:-/srv/keycloak/themes}"
+src=deploy/keycloak/themes/recipe-box
+sudo_if_needed() { "$@" 2>/dev/null || sudo "$@"; }
+if [ ! -d "$themes_dir" ]; then
+  echo "keycloak: no theme directory $themes_dir (set KC_THEMES_DIR); sign-in page keeps its look" >&2
+elif diff -rq "$src" "$themes_dir/recipe-box" >/dev/null 2>&1; then
+  echo "keycloak: recipe-box theme up to date"
+else
+  echo "keycloak: installing recipe-box theme in $themes_dir, restarting keycloak"
+  sudo_if_needed rm -rf "$themes_dir/recipe-box.new"
+  sudo_if_needed cp -r "$src" "$themes_dir/recipe-box.new"
+  sudo_if_needed chmod -R a+rX "$themes_dir/recipe-box.new"
+  sudo_if_needed rm -rf "$themes_dir/recipe-box"
+  sudo_if_needed mv "$themes_dir/recipe-box.new" "$themes_dir/recipe-box"
+  docker restart "$kc" >/dev/null
+  for _ in $(seq 1 60); do
+    [ "$(docker inspect -f '{{.State.Health.Status}}' "$kc")" = healthy ] && break
+    sleep 3
+  done
+  [ "$(docker inspect -f '{{.State.Health.Status}}' "$kc")" = healthy ] || { echo "keycloak didn't come back healthy" >&2; exit 1; }
+fi
+if [ -d "$themes_dir/recipe-box" ] &&
+  [ "$(kcadm get "realms/$KEYCLOAK_REALM" --fields loginTheme,displayName --format csv --noquotes)" != "recipe-box,Recipe Box" ]; then
+  kcadm update "realms/$KEYCLOAK_REALM" -s loginTheme=recipe-box -s "displayName=Recipe Box"
+  echo "keycloak: realm $KEYCLOAK_REALM now uses the recipe-box sign-in theme"
 fi

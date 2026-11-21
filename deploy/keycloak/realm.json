@@ -1,6 +1,7 @@
 {
   "realm": "recipe-box",
-  "displayName": "App",
+  "displayName": "Recipe Box",
+  "loginTheme": "recipe-box",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,

@@ -174,9 +174,11 @@ applies to both APIs; the default includes `capacitor://localhost` and
   `deploy/docker-compose.shared.yml`: this app starts only its APIs and
   backup (of `app` only), joins that network, and runs
   `deploy/scripts/shared-platform.sh`, which makes sure the `app` database,
-  its owner/platform roles and realm `app` exist there (it never changes an
-  existing realm). `deploy/keycloak/configure.sh` runs against the shared
-  Keycloak too. Render nginx with `APP_SERVER=existing AUTH_SERVER=existing`;
+  its owner/platform roles and realm `recipe-box` exist there (it never
+  changes an existing realm's other settings), and installs the sign-in page
+  theme (`deploy/keycloak/themes/recipe-box`) in infra-core's
+  `/srv/keycloak/themes`, restarting the shared Keycloak only when the theme
+  changed. `deploy/keycloak/configure.sh` runs against the shared Keycloak too. Render nginx with `APP_SERVER=existing AUTH_SERVER=existing`;
   infra-core serves the auth host. Without `PLATFORM_PROJECT`, the app runs
   its own Postgres and Keycloak as below.
 - Hostnames: the site at `https://<APP_HOST><APP_PATH>/` and Keycloak at
