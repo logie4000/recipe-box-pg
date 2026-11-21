@@ -145,10 +145,23 @@ Keycloak session. An admin gem (Avo, Madmin, Administrate) can mount under
 ## Social login
 
 Keycloak brokers Google. The `google` identity provider is in `realm.json`
-but **disabled**. To use it, set `KC_GOOGLE_CLIENT_ID` / `KC_GOOGLE_CLIENT_SECRET`,
+but **disabled**. In production, put the OAuth client's id and secret in SSM
+and deploy:
+
+```bash
+aws ssm put-parameter --name /webapp/recipe-box/KC_GOOGLE_CLIENT_ID --type String --value '<client id>' --overwrite
+aws ssm put-parameter --name /webapp/recipe-box/KC_GOOGLE_CLIENT_SECRET --type SecureString --value '<client secret>' --overwrite
+```
+
+On a shared Keycloak, `deploy.sh` (through `shared-platform.sh`) then turns
+the realm's `google` provider on with those values and sets up First Broker
+Login to link accounts by verified email, on every deploy, so a new secret
+only needs another deploy. To turn Google off, disable the provider in the
+admin console and delete the two parameters. The Google client needs the
+redirect URI `https://<AUTH_HOST>/realms/recipe-box/broker/google/endpoint`.
+Locally, set the two values in `.env` (read at the first realm import),
 enable the provider in the admin console, and run
-`deploy/keycloak/configure.sh google-autolink` so First Broker Login links
-accounts by verified email. The SPA's "Sign in with Google" button passes
+`deploy/keycloak/configure.sh google-autolink`. The SPA's "Sign in with Google" button passes
 `kc_idp_hint=google`.
 
 ## API versioning and mobile
