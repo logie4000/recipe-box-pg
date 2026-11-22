@@ -11,6 +11,7 @@ import {
   ShoppingListItem,
   ShoppingListRecipe,
 } from './shopping-list.api';
+import { buildShoppingListPdf, pdfFileName } from './shopping-list-pdf';
 
 /** Ticked-off item keys, on this browser only (docs/shopping-list.md). */
 export const TICKS_KEY = 'recipe-box.shopping-ticks';
@@ -39,6 +40,9 @@ interface PickerRecipe {
         <div class="actions no-print">
           <button type="button" (click)="copy()" [disabled]="!toGet().length">
             {{ copied() ? 'Copied!' : 'Copy list' }}
+          </button>
+          <button type="button" (click)="downloadPdf()" [disabled]="makingPdf()">
+            {{ makingPdf() ? 'Making PDF…' : 'Download PDF' }}
           </button>
           <button type="button" (click)="print()">Print</button>
         </div>
@@ -400,6 +404,7 @@ export class ShoppingListPage implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly confirmingClear = signal(false);
   protected readonly copied = signal(false);
+  protected readonly makingPdf = signal(false);
   protected readonly ticks = signal(readTicks());
 
   /** The picker's sources; own recipes also give the /recipes/:id links. */
@@ -535,6 +540,26 @@ export class ShoppingListPage implements OnInit {
       setTimeout(() => this.copied.set(false), 2000);
     } catch {
       this.error.set('Copy failed. Try Print instead.');
+    }
+  }
+
+  /** A PDF of the recipes and the items still to get, for saving or sharing. */
+  protected async downloadPdf(): Promise<void> {
+    this.makingPdf.set(true);
+    this.error.set(null);
+    try {
+      const date = new Date();
+      const doc = await buildShoppingListPdf({
+        recipes: this.recipes(),
+        items: this.toGet(),
+        servingsLabel,
+        date,
+      });
+      doc.save(pdfFileName(date));
+    } catch {
+      this.error.set('Could not make the PDF. Try Print instead.');
+    } finally {
+      this.makingPdf.set(false);
     }
   }
 

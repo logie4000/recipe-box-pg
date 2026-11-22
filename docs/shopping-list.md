@@ -127,6 +127,15 @@ func Consolidate(recipes []RecipeInput) []Item
    Round to friendly fractions (1/8, 1/4, 1/3, 1/2, 2/3, 3/4) for US units,
    whole numbers for g/ml under 1000, one decimal for kg/l.
 
+## PDF export
+
+"Download PDF" on the Shopping List page saves `shopping-list-YYYY-MM-DD.pdf`
+in the browser (jsPDF, loaded only on click, so the page bundle doesn't grow).
+It has the recipes with their multipliers, then a tick box per item still to
+get, with amounts and which recipes it's for. Ticked items are left out, as
+with Copy list. The built-in PDF font covers Latin-1 only, so other characters
+are simplified (curly quotes to straight, 1/3 for the thirds glyph) or dropped.
+
 ### Known limits
 
 - "3 garlic cloves" and "2 cloves garlic" don't combine (the first reads as
