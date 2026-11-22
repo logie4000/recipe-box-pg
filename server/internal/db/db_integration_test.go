@@ -71,6 +71,9 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 		"UPDATE recipes SET author_name = 'Alice A' WHERE owner_sub = 'alice'",
 		// Bob saved Soup (shared) and Pancakes (since made private); Carol saved Soup.
 		"INSERT INTO saved_recipes (user_sub, recipe_id, created_at) VALUES ('bob', 2, now()), ('bob', 1, now()), ('carol', 2, now())",
+		// Bob's shopping list: Soup (alice's, shared) doubled, Pancakes (alice's,
+		// private now) and his own private Chili halved. Carol's has Soup.
+		"INSERT INTO shopping_list_recipes (user_sub, recipe_id, servings, created_at) VALUES ('bob', 2, 2, now()), ('bob', 1, 1, now()), ('bob', 3, 0.5, now()), ('carol', 2, 1, now())",
 		"INSERT INTO account_requests (user_sub, email, name, created_at, updated_at) VALUES ('dave', 'dave@example.test', 'Dave', now(), now()), ('erin', NULL, 'Erin', now(), now())",
 	} {
 		if _, err := owner.Exec(ctx, stmt); err != nil {
@@ -94,6 +97,7 @@ func TestReaderRoleEndToEnd(t *testing.T) {
 
 	testRecipes(ctx, t, pool)
 	testSavedRecipes(ctx, t, pool)
+	testShoppingList(ctx, t, pool)
 }
 
 const (
@@ -341,6 +345,46 @@ func testSavedRecipes(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
 				}
 				if got != c.want {
 					return fmt.Errorf("%s/%s = %+v, want %+v", c.user, c.publicID, got, c.want)
+				}
+				return nil
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+	})
+}
+
+func testShoppingList(ctx context.Context, t *testing.T, pool *pgxpool.Pool) {
+	t.Run("shopping list: own and shared recipes by title, minus others' private ones", func(t *testing.T) {
+		err := ReadTx(ctx, pool, RequestContext{UserID: "bob"}, func(q *sqlc.Queries) error {
+			rows, err := q.ListShoppingListRecipes(ctx, "bob")
+			if err != nil {
+				return err
+			}
+			want := []sqlc.ListShoppingListRecipesRow{
+				{PublicID: chiliPublicID, Title: "Chili", Ingredients: []string{"beans"}, Servings: 0.5, Mine: true},
+				{PublicID: soupPublicID, Title: "Soup", Ingredients: []string{}, Servings: 2, Mine: false},
+			}
+			if fmt.Sprint(rows) != fmt.Sprint(want) {
+				return fmt.Errorf("bob's list = %+v, want %+v", rows, want)
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("shopping list: RLS hides other users' lists even if the query asks for them", func(t *testing.T) {
+		for _, rc := range []RequestContext{{UserID: "bob"}, {UserID: "alice"}, {}} {
+			err := ReadTx(ctx, pool, rc, func(q *sqlc.Queries) error {
+				rows, err := q.ListShoppingListRecipes(ctx, "carol")
+				if err != nil {
+					return err
+				}
+				if len(rows) != 0 {
+					return fmt.Errorf("%+v saw carol's list: %+v", rc, rows)
 				}
 				return nil
 			})

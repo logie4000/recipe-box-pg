@@ -310,3 +310,16 @@ table.list {
     grid-template-columns: 1fr;
   }
 }
+
+// Printing (the shopping list): just the page content, without the menu or
+// buttons. Mark controls that make no sense on paper with .no-print.
+@media print {
+  .masthead,
+  .side-nav,
+  .no-print {
+    display: none !important;
+  }
+  .content {
+    display: block !important;
+  }
+}

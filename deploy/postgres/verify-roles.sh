@@ -32,11 +32,15 @@ R=app_reader; RP="${APP_READER_PASSWORD:-}"
 W=app_writer; WP="${APP_WRITER_PASSWORD:-}"
 
 expect_ok   $R "$RP" "SELECT count(*) FROM recipes"
+# Tables made by later migrations get their grants from default privileges.
+expect_ok   $R "$RP" "SELECT count(*) FROM shopping_list_recipes"
+expect_fail $R "$RP" "DELETE FROM shopping_list_recipes"
 expect_fail $R "$RP" "INSERT INTO recipes (public_id, owner_sub, title, created_at, updated_at) VALUES ('Verify000001', 'x', 'x', now(), now())"
 expect_fail $R "$RP" "SELECT count(*) FROM solid_queue_jobs"
 [ "$(run $R "$RP" 'SHOW default_transaction_read_only')" = "on" ] && echo "ok   $R: default_transaction_read_only = on" || { echo "FAIL $R is not read-only by default"; fail=1; }
 
 expect_ok   $W "$WP" "BEGIN; SET LOCAL app.user_id = 'x'; INSERT INTO recipes (public_id, owner_sub, title, created_at, updated_at) VALUES ('Verify000001', 'x', 'x', now(), now()); ROLLBACK"
+expect_ok   $W "$WP" "BEGIN; SET LOCAL app.user_id = 'x'; UPDATE shopping_list_recipes SET servings = 1; DELETE FROM shopping_list_recipes; ROLLBACK"
 expect_fail $W "$WP" "CREATE TABLE should_not_exist (id int)"
 expect_fail $W "$WP" "ALTER TABLE recipes ADD COLUMN nope int"
 

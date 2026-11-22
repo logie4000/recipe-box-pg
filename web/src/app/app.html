@@ -18,6 +18,7 @@
     @if (auth.isMember()) {
       <a routerLink="/recipes" routerLinkActive="active">My Recipes</a>
       <a routerLink="/saved" routerLinkActive="active">Saved</a>
+      <a routerLink="/shopping-list" routerLinkActive="active">Shopping List</a>
       @if (auth.isAdmin()) {
         <a routerLink="/approvals" routerLinkActive="active">Approvals</a>
       }

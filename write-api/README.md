@@ -10,7 +10,7 @@ for setup; this is a map of the pieces.
 | Role-based authorization (reader / editor / admin) | `app/policies/` (Pundit), `app/models/auth_user.rb` |
 | `app.user_id` / `app.tenant_id` for RLS, one txn per request | `app/controllers/concerns/database_request_context.rb`, `app/models/db_context.rb` |
 | Example resource | `app/controllers/api/v1/recipes_controller.rb` (POST/PATCH/DELETE `/api/v1/recipes`) |
-| RLS example | `recipes` and `saved_recipes` tables (policies in `db/structure.sql`) |
+| RLS example | `recipes`, `saved_recipes` and `shopping_list_recipes` tables (policies in `db/structure.sql`) |
 | Admin cookie-login hook | `config/initializers/omniauth.rb`, `app/controllers/admin/` |
 | Multi-tenancy (off by default) | `app/models/tenancy.rb`, `app/controllers/concerns/tenant_resolution.rb`, `bin/rails g tenancy` |
 | CORS | `config/initializers/cors.rb` (`CORS_ALLOWED_ORIGINS`) |

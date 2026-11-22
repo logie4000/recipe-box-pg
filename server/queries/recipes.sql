@@ -64,3 +64,16 @@ SELECT (r.owner_sub = sqlc.arg(caller_sub)::text) AS mine,
        ) AS saved
 FROM recipes r
 WHERE r.public_id = sqlc.arg(public_id) AND r.is_public;
+
+-- The recipes on the caller's shopping list, by title, with what the
+-- read-api needs to consolidate their ingredients. A recipe someone else
+-- stopped sharing drops out (and comes back if shared again).
+-- name: ListShoppingListRecipes :many
+SELECT r.public_id, r.title, r.ingredients,
+       l.servings::float8 AS servings,
+       (r.owner_sub = sqlc.arg(caller_sub)::text) AS mine
+FROM shopping_list_recipes l
+JOIN recipes r ON r.id = l.recipe_id
+WHERE l.user_sub = sqlc.arg(caller_sub)::text
+  AND (r.owner_sub = sqlc.arg(caller_sub)::text OR r.is_public)
+ORDER BY lower(r.title), r.id;

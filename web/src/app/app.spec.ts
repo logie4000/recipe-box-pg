@@ -68,6 +68,12 @@ describe('App', () => {
     expect(text).toContain('Alice');
     expect(nav(fixture).querySelector('a[href="/recipes"]')).not.toBeNull();
     expect(nav(fixture).querySelector('a[href="/approvals"]')).toBeNull();
+    // Shopping List comes straight after Saved.
+    const links = Array.from(nav(fixture).querySelectorAll('a')).map((a) => a.textContent?.trim());
+    expect(links.slice(links.indexOf('Saved'), links.indexOf('Saved') + 2)).toEqual([
+      'Saved',
+      'Shopping List',
+    ]);
   });
 
   it('shows Approvals to admins', async () => {

@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { pageTitle } from '../../core/page-title';
 import { RecipeExport } from './import/recipe-export';
+import { ShoppingListButton } from '../shopping-list/shopping-list-button';
 import { RecipeBody } from './recipe-body';
 import { PublicRecipe, RecipesApi, SavedStatus } from './recipes.api';
 import { SaveButton } from './save-button';
@@ -17,7 +18,7 @@ import { SaveButton } from './save-button';
  */
 @Component({
   selector: 'app-public-recipe',
-  imports: [RouterLink, RecipeBody, SaveButton],
+  imports: [RouterLink, RecipeBody, SaveButton, ShoppingListButton],
   template: `
     @if (recipe(); as r) {
       <article>
@@ -55,6 +56,9 @@ import { SaveButton } from './save-button';
                 </svg>
               </button>
             </div>
+            @if (auth.isMember()) {
+              <app-shopping-list-button class="shop" [publicId]="r.public_id" />
+            }
           </div>
           @if (r.image_key && !imageFailed()) {
             <img
@@ -117,6 +121,9 @@ import { SaveButton } from './save-button';
     }
     .spacer {
       flex: 1;
+    }
+    .shop {
+      margin-bottom: 1rem;
     }
     .small {
       font-size: 0.85rem;

@@ -58,6 +58,14 @@ export const routes: Routes = [
     title: 'Saved recipes',
   },
   {
+    // One combined list of ingredients from the recipes the user picked.
+    path: 'shopping-list',
+    canActivate: [authGuard, memberGuard],
+    loadComponent: () =>
+      import('./features/shopping-list/shopping-list-page').then((m) => m.ShoppingListPage),
+    title: 'Shopping list',
+  },
+  {
     // Sign-ups waiting for an admin.
     path: 'approvals',
     canActivate: [authGuard, roleGuard('admin')],
