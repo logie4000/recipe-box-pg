@@ -12,6 +12,11 @@ Rails.application.routes.draw do
       end
       # Same path as the read-api's GET /api/v1/saved-recipes.
       resources :saved_recipes, path: "saved-recipes", only: %i[create destroy]
+      # The caller's shopping list; the read-api serves GET /api/v1/shopping-list.
+      scope "shopping-list", as: :shopping_list do
+        resources :recipes, controller: "shopping_list_recipes", param: :public_id, only: %i[create update destroy]
+        delete "/", to: "shopping_list_recipes#clear", as: :clear
+      end
       # Getting in: email verification, or an admin's approval (admins list
       # the requests on the read-api).
       resources :account_requests, path: "account-requests", only: %i[create destroy] do

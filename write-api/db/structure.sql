@@ -151,6 +151,40 @@ CREATE TABLE public.schema_migrations (
 
 
 --
+-- Name: shopping_list_recipes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.shopping_list_recipes (
+    id bigint NOT NULL,
+    user_sub character varying NOT NULL,
+    recipe_id bigint NOT NULL,
+    servings numeric(6,2) DEFAULT 1.0 NOT NULL,
+    created_at timestamp(6) without time zone NOT NULL
+);
+
+ALTER TABLE ONLY public.shopping_list_recipes FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: shopping_list_recipes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.shopping_list_recipes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: shopping_list_recipes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.shopping_list_recipes_id_seq OWNED BY public.shopping_list_recipes.id;
+
+
+--
 -- Name: solid_queue_batch_executions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -615,6 +649,13 @@ ALTER TABLE ONLY public.saved_recipes ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: shopping_list_recipes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shopping_list_recipes ALTER COLUMN id SET DEFAULT nextval('public.shopping_list_recipes_id_seq'::regclass);
+
+
+--
 -- Name: solid_queue_batch_executions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -743,6 +784,14 @@ ALTER TABLE ONLY public.saved_recipes
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: shopping_list_recipes shopping_list_recipes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shopping_list_recipes
+    ADD CONSTRAINT shopping_list_recipes_pkey PRIMARY KEY (id);
 
 
 --
@@ -882,6 +931,20 @@ CREATE INDEX index_saved_recipes_on_recipe_id ON public.saved_recipes USING btre
 --
 
 CREATE UNIQUE INDEX index_saved_recipes_on_user_sub_and_recipe_id ON public.saved_recipes USING btree (user_sub, recipe_id);
+
+
+--
+-- Name: index_shopping_list_recipes_on_recipe_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_shopping_list_recipes_on_recipe_id ON public.shopping_list_recipes USING btree (recipe_id);
+
+
+--
+-- Name: index_shopping_list_recipes_on_user_sub_and_recipe_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_shopping_list_recipes_on_user_sub_and_recipe_id ON public.shopping_list_recipes USING btree (user_sub, recipe_id);
 
 
 --
@@ -1181,6 +1244,14 @@ ALTER TABLE ONLY public.solid_queue_scheduled_executions
 
 
 --
+-- Name: shopping_list_recipes fk_rails_ccb6eee4ff; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shopping_list_recipes
+    ADD CONSTRAINT fk_rails_ccb6eee4ff FOREIGN KEY (recipe_id) REFERENCES public.recipes(id) ON DELETE CASCADE;
+
+
+--
 -- Name: account_requests; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -1234,12 +1305,26 @@ CREATE POLICY saved_recipes_owner ON public.saved_recipes USING (((user_sub)::te
 
 
 --
+-- Name: shopping_list_recipes; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.shopping_list_recipes ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: shopping_list_recipes shopping_list_recipes_owner; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY shopping_list_recipes_owner ON public.shopping_list_recipes USING (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text))) WITH CHECK (((user_sub)::text = NULLIF(current_setting('app.user_id'::text, true), ''::text)));
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20261122150000'),
 ('20261121190000'),
 ('20261120150000'),
 ('20261006170000'),

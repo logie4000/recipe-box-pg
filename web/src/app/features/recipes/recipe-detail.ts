@@ -6,6 +6,7 @@ import { Router, RouterLink } from '@angular/router';
 
 import { pageTitle } from '../../core/page-title';
 import { RecipeExport } from './import/recipe-export';
+import { ShoppingListButton } from '../shopping-list/shopping-list-button';
 import { RecipeBody } from './recipe-body';
 import { RecipePhoto } from './recipe-photo';
 import { Recipe, RecipesApi } from './recipes.api';
@@ -14,7 +15,7 @@ import { SharePanel } from './share-panel';
 /** One of the user's own recipes: photo, sharing, edit and delete. The photo is changed on the edit page. */
 @Component({
   selector: 'app-recipe-detail',
-  imports: [RouterLink, DatePipe, RecipeBody, RecipePhoto, SharePanel],
+  imports: [RouterLink, DatePipe, RecipeBody, RecipePhoto, SharePanel, ShoppingListButton],
   template: `
     <p><a routerLink="/recipes">← My Recipes</a></p>
 
@@ -73,6 +74,7 @@ import { SharePanel } from './share-panel';
               </svg>
             </button>
           </app-share-panel>
+          <app-shopping-list-button class="shop" [publicId]="r.public_id" />
         </div>
 
         <div class="right">
@@ -145,6 +147,9 @@ import { SharePanel } from './share-panel';
     }
     .danger {
       color: var(--error);
+    }
+    .shop {
+      margin-bottom: 1rem;
     }
     .photo {
       border: 2px solid #000;

@@ -22,6 +22,7 @@ import (
 	"github.com/logie4000/webapp-template/server/internal/db"
 	"github.com/logie4000/webapp-template/server/internal/db/sqlc"
 	"github.com/logie4000/webapp-template/server/internal/httpx"
+	"github.com/logie4000/webapp-template/server/internal/shoppinglist"
 	"github.com/logie4000/webapp-template/server/internal/storage"
 )
 
@@ -62,6 +63,7 @@ func (s *Server) Routes() http.Handler {
 	mux.Handle("GET /api/v1/recipes/{id}/image", protected(s.getRecipeImage))
 	mux.Handle("GET /api/v1/saved-recipes", protected(s.listSavedRecipes))
 	mux.Handle("GET /api/v1/saved-recipes/{public_id}", protected(s.getSavedStatus))
+	mux.Handle("GET /api/v1/shopping-list", protected(s.getShoppingList))
 	mux.Handle("GET /api/v1/account-requests", protected(s.listAccountRequests))
 
 	// CORS runs first so a 429 still carries the headers the browser needs
@@ -231,6 +233,49 @@ func (s *Server) getSavedStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, status)
+}
+
+// shoppingListRecipe is one recipe on the list, as the client sees it (the
+// ingredient lines come back consolidated in "items" instead).
+type shoppingListRecipe struct {
+	PublicID string  `json:"public_id"`
+	Title    string  `json:"title"`
+	Servings float64 `json:"servings"`
+	Mine     bool    `json:"mine"`
+}
+
+// getShoppingList is the caller's shopping list: its recipes, by title, and
+// their ingredients consolidated (computed on every read, so recipe edits
+// show up at once). shopping_list_recipes rows are private to their user
+// (RLS); someone else's recipe that stopped being shared is left out.
+func (s *Server) getShoppingList(w http.ResponseWriter, r *http.Request) {
+	var rows []sqlc.ListShoppingListRecipesRow
+	err := db.ReadTx(r.Context(), s.Pool, s.requestContext(r), func(q *sqlc.Queries) error {
+		var err error
+		rows, err = q.ListShoppingListRecipes(r.Context(), auth.UserFrom(r.Context()).Subject)
+		return err
+	})
+	if err != nil {
+		s.dbError(w, err)
+		return
+	}
+	httpx.JSON(w, http.StatusOK, shoppingListResponse(rows))
+}
+
+// shoppingListResponse shapes the rows for getShoppingList. Both lists are
+// always JSON arrays, never null.
+func shoppingListResponse(rows []sqlc.ListShoppingListRecipesRow) map[string]any {
+	recipes := make([]shoppingListRecipe, 0, len(rows))
+	inputs := make([]shoppinglist.RecipeInput, 0, len(rows))
+	for _, row := range rows {
+		recipes = append(recipes, shoppingListRecipe{PublicID: row.PublicID, Title: row.Title, Servings: row.Servings, Mine: row.Mine})
+		inputs = append(inputs, shoppinglist.RecipeInput{PublicID: row.PublicID, Title: row.Title, Servings: row.Servings, Ingredients: row.Ingredients})
+	}
+	items := shoppinglist.Consolidate(inputs)
+	if items == nil {
+		items = []shoppinglist.Item{}
+	}
+	return map[string]any{"recipes": recipes, "items": items}
 }
 
 // publicIDPattern matches Recipe.generate_public_id in the write-api

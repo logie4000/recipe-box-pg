@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/logie4000/webapp-template/server/internal/auth"
+	"github.com/logie4000/webapp-template/server/internal/db/sqlc"
 	"github.com/logie4000/webapp-template/server/internal/httpx"
 	"github.com/logie4000/webapp-template/server/internal/storage"
 )
@@ -52,7 +53,7 @@ func TestMetaIsPublic(t *testing.T) {
 }
 
 func TestProtectedRoutesNeedToken(t *testing.T) {
-	for _, path := range []string{"/api/v1/me", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image", "/api/v1/account-requests"} {
+	for _, path := range []string{"/api/v1/me", "/api/v1/recipes", "/api/v1/recipes/1", "/api/v1/recipes/1/image", "/api/v1/shopping-list", "/api/v1/account-requests"} {
 		rec := httptest.NewRecorder()
 		testServer().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 		if rec.Code != http.StatusUnauthorized {
@@ -168,5 +169,56 @@ func TestRateLimitedResponseKeepsCORS(t *testing.T) {
 	}
 	if got := rec.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:4200" {
 		t.Fatalf("429 Access-Control-Allow-Origin = %q", got)
+	}
+}
+
+// An empty list is two empty arrays, never null, so clients can iterate
+// without checks.
+func TestShoppingListResponseEmpty(t *testing.T) {
+	for _, rows := range [][]sqlc.ListShoppingListRecipesRow{nil, {}} {
+		raw, err := json.Marshal(shoppingListResponse(rows))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got, want := string(raw), `{"items":[],"recipes":[]}`; got != want {
+			t.Errorf("empty shopping list = %s, want %s", got, want)
+		}
+	}
+}
+
+// Recipes keep their order and come back without their ingredient lines;
+// the lines are consolidated into items, scaled by servings, with sources.
+func TestShoppingListResponse(t *testing.T) {
+	rows := []sqlc.ListShoppingListRecipesRow{
+		{PublicID: "Pancakes0001", Title: "Pancakes", Ingredients: []string{"2 eggs", "salt"}, Servings: 2, Mine: true},
+		{PublicID: "SoupSoup0002", Title: "Soup", Ingredients: []string{"1 egg"}, Servings: 0.5},
+	}
+	raw, err := json.Marshal(shoppingListResponse(rows))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body struct {
+		Recipes []map[string]any `json:"recipes"`
+		Items   []struct {
+			Key     string           `json:"key"`
+			Sources []map[string]any `json:"sources"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Recipes) != 2 || body.Recipes[0]["public_id"] != "Pancakes0001" || body.Recipes[0]["servings"] != 2.0 ||
+		body.Recipes[0]["mine"] != true || body.Recipes[1]["mine"] != false || body.Recipes[1]["servings"] != 0.5 {
+		t.Fatalf("recipes = %v", body.Recipes)
+	}
+	if _, ok := body.Recipes[0]["ingredients"]; ok {
+		t.Errorf("recipes carry their ingredient lines: %v", body.Recipes[0])
+	}
+	sources := 0
+	for _, it := range body.Items {
+		sources += len(it.Sources)
+	}
+	if len(body.Items) == 0 || sources != 3 {
+		t.Errorf("items = %s, want every line traced to its recipe (3 sources)", raw)
 	}
 }

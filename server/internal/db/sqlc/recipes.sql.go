@@ -337,3 +337,51 @@ func (q *Queries) ListSharedRecipes(ctx context.Context, arg ListSharedRecipesPa
 	}
 	return items, nil
 }
+
+const listShoppingListRecipes = `-- name: ListShoppingListRecipes :many
+SELECT r.public_id, r.title, r.ingredients,
+       l.servings::float8 AS servings,
+       (r.owner_sub = $1::text) AS mine
+FROM shopping_list_recipes l
+JOIN recipes r ON r.id = l.recipe_id
+WHERE l.user_sub = $1::text
+  AND (r.owner_sub = $1::text OR r.is_public)
+ORDER BY lower(r.title), r.id
+`
+
+type ListShoppingListRecipesRow struct {
+	PublicID    string   `json:"public_id"`
+	Title       string   `json:"title"`
+	Ingredients []string `json:"ingredients"`
+	Servings    float64  `json:"servings"`
+	Mine        bool     `json:"mine"`
+}
+
+// The recipes on the caller's shopping list, by title, with what the
+// read-api needs to consolidate their ingredients. A recipe someone else
+// stopped sharing drops out (and comes back if shared again).
+func (q *Queries) ListShoppingListRecipes(ctx context.Context, callerSub string) ([]ListShoppingListRecipesRow, error) {
+	rows, err := q.db.Query(ctx, listShoppingListRecipes, callerSub)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListShoppingListRecipesRow{}
+	for rows.Next() {
+		var i ListShoppingListRecipesRow
+		if err := rows.Scan(
+			&i.PublicID,
+			&i.Title,
+			&i.Ingredients,
+			&i.Servings,
+			&i.Mine,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
