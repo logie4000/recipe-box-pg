@@ -2,7 +2,7 @@
 # The production web build, packaged as an image so it ships through ECR with
 # the APIs (.github/workflows/images.yml). Nothing runs from it:
 # deploy/scripts/deploy.sh copies /site into the nginx web root.
-FROM node:22-bookworm-slim AS build
+FROM node:25-bookworm-slim AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 # The npm that wrote package-lock.json (package.json "packageManager"), as in CI:
