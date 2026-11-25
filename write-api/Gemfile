@@ -49,7 +49,7 @@ gem "acts_as_tenant", "~> 2.2"            # only active when TENANT_MODE=on
 # Admin cookie-login hook (Keycloak confidential client "rails-admin")
 gem "omniauth", "~> 2.4"
 gem "omniauth_openid_connect", "~> 0.8"
-gem "omniauth-rails_csrf_protection", "~> 1.0"
+gem "omniauth-rails_csrf_protection", "~> 2.0"
 
 group :development, :test do
   gem "dotenv", "~> 3.1"                  # loads ../.env (repo root)
