@@ -44,7 +44,7 @@ gem "solid_queue", "~> 1.7"               # background jobs in the same Postgres
 gem "aws-sdk-s3", "~> 1.245", require: false # recipe photos on S3 (IMAGE_STORAGE=s3)
 gem "aws-sdk-sesv2", "~> 1.0", require: false # sign-up verification codes (config/initializers/mail.rb)
 gem "lograge"                             # one-line JSON request logs
-gem "acts_as_tenant", "~> 1.0"            # only active when TENANT_MODE=on
+gem "acts_as_tenant", "~> 2.2"            # only active when TENANT_MODE=on
 
 # Admin cookie-login hook (Keycloak confidential client "rails-admin")
 gem "omniauth", "~> 2.4"
