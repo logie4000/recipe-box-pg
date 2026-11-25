@@ -1,2 +1,12 @@
 # Default owner
 * @logie4000
+
+# Dependency manifests and lockfiles have no owner, so Dependabot's patch/minor
+# PRs can auto-merge on green CI without a code-owner review. Changes to
+# Dockerfiles, workflows and everything else still need @logie4000.
+/write-api/Gemfile
+/write-api/Gemfile.lock
+/server/go.mod
+/server/go.sum
+/web/package.json
+/web/package-lock.json
