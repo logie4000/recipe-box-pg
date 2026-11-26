@@ -35,6 +35,10 @@ These can't be set from a PR:
   not start workflows from that push, so CI on main and the Images workflow don't
   run for it. The next ordinary push to main builds images that include the
   updates.
+- Angular and TypeScript majors (and TypeScript minors, since each Angular
+  release pins one TypeScript minor) are ignored. Upgrade them with
+  `npx ng update @angular/core@N @angular/cli@N angular-eslint@N` in `web/`,
+  which also runs Angular's code migrations and picks the matching TypeScript.
 - Dependabot can't follow images pinned through `ARG` (ruby, keycloak, postgres)
   or the `${VAR}` images in `deploy/docker-compose*.yml`, nor Ruby
   (`.ruby-version`) and the Go version in `server/go.mod`. Bump those by hand.

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
 import { Recipe, RecipesApi } from './recipes.api';
@@ -120,6 +120,7 @@ const LAYOUT_KEY = 'recipe-box.my-recipes-layout';
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .layout {
       margin-right: 0.5rem;

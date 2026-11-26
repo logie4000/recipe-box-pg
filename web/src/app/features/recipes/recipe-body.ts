@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 
 /** Ingredients and directions, shared by the owner's page and the public page. */
 @Component({
@@ -30,6 +30,7 @@ import { Component, input } from '@angular/core';
       }
     </section>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     /*
      * Same columns as the title panel and photo above (400px : 600px), so

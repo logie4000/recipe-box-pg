@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
 
@@ -69,6 +69,7 @@ export interface AccountRequest {
       </p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     td.actions {
       white-space: nowrap;

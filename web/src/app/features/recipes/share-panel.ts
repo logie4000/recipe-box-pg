@@ -1,4 +1,12 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { Recipe, RecipesApi } from './recipes.api';
 
@@ -53,6 +61,7 @@ import { Recipe, RecipesApi } from './recipes.api';
       <p class="error" role="alert">{{ error() }}</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       display: block;

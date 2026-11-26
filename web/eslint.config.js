@@ -15,6 +15,10 @@ module.exports = defineConfig([
     ],
     processor: angular.processInlineTemplates,
     rules: {
+      // Angular 22 made OnPush the default; `ng update` marked existing
+      // components ChangeDetectionStrategy.Eager to keep their v21 behaviour.
+      // Turn this back on once components are moved to OnPush one by one.
+      '@angular-eslint/prefer-on-push-component-change-detection': 'off',
       '@angular-eslint/directive-selector': [
         'error',
         {

@@ -41,10 +41,20 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
-      # Angular packages must move together; keep a major upgrade in one PR.
-      angular-major:
-        patterns: ["@angular/*", "@angular-devkit/*", "angular-eslint", "@angular-eslint/*"]
-        update-types: [major]
+    # Angular majors need `ng update` (code migrations, and a TypeScript version
+    # pinned by Angular), which Dependabot can't do: its PRs for these fail to
+    # install. Upgrade them by hand with ng update twice a year instead.
+    ignore:
+      - dependency-name: "@angular/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@angular-devkit/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: "angular-eslint"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@angular-eslint/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: "typescript"
+        update-types: [version-update:semver-major, version-update:semver-minor]
 
   - package-ecosystem: docker
     directories: [/server, /web, /write-api, /deploy/keycloak, /deploy/backup]

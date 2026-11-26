@@ -1,5 +1,12 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { catchError, forkJoin, of } from 'rxjs';
 
 import { AuthService } from '../../core/auth.service';
@@ -119,6 +126,7 @@ interface AuthorGroup {
       </ul>
     </ng-template>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .tools {
       margin-bottom: 0.75rem;

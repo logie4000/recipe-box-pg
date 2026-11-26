@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
 
 import { RecipeBody } from './recipe-body';
 
@@ -37,6 +37,7 @@ import { RecipeBody } from './recipe-body';
       <app-recipe-body [ingredients]="cleanIngredients()" [directions]="cleanDirections()" />
     </article>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     /* Same layout as the recipe page: 400px panel beside a 600px photo. */
     .recipe-top {

@@ -1,4 +1,11 @@
-import { Component, DestroyRef, effect, inject, input } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  input,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { ObjectUrl } from './object-url';
 import { RecipesApi } from './recipes.api';
@@ -13,6 +20,7 @@ import { RecipesApi } from './recipes.api';
       <div class="placeholder" aria-hidden="true">🍽</div>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       display: block;

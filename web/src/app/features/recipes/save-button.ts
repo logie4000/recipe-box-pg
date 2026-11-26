@@ -1,4 +1,4 @@
-import { Component, inject, input, model, signal } from '@angular/core';
+import { Component, inject, input, model, signal, ChangeDetectionStrategy } from '@angular/core';
 
 import { RecipesApi } from './recipes.api';
 
@@ -28,6 +28,7 @@ import { RecipesApi } from './recipes.api';
       <span class="error" role="alert">{{ error() }}</span>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       display: inline-flex;

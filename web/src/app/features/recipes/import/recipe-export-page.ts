@@ -1,5 +1,12 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Recipe, RecipesApi } from '../recipes.api';
@@ -97,6 +104,7 @@ import { RecipeExport } from './recipe-export';
       <p>You have no recipes to export yet.</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .filter {
       max-width: 24rem;
