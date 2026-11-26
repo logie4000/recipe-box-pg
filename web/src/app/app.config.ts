@@ -1,4 +1,4 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors, withXhr } from '@angular/common/http';
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, TitleStrategy, withComponentInputBinding } from '@angular/router';
 
@@ -12,7 +12,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes, withComponentInputBinding()),
     { provide: TitleStrategy, useClass: PageTitleStrategy },
-    provideHttpClient(withInterceptors([apiInterceptor])),
+    provideHttpClient(withXhr(), withInterceptors([apiInterceptor])),
     provideOidc(),
   ],
 };

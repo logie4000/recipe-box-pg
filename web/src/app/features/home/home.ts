@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -23,18 +23,18 @@ interface Meta {
     <h1>Recipe Box</h1>
     @if (auth.isPending() && signup.state()?.status === 'verify') {
       <p>
-        Welcome, <strong>{{ auth.displayName() }}</strong
-        >. One last step: confirm your email address.
+        Welcome, <strong>{{ auth.displayName() }}</strong>. One last step: confirm your email
+        address.
       </p>
       @if (signup.state()?.code_sent_at) {
         <p>
-          We emailed a 6-digit code to <strong>{{ signup.state()?.email }}</strong
-          >. Enter it here to finish signing up.
+          We emailed a 6-digit code to <strong>{{ signup.state()?.email }}</strong>. Enter it here
+          to finish signing up.
         </p>
       } @else {
         <p>
-          We'll email a 6-digit code to <strong>{{ signup.state()?.email }}</strong
-          >. Send it, then enter it here.
+          We'll email a 6-digit code to <strong>{{ signup.state()?.email }}</strong>. Send it, then
+          enter it here.
         </p>
       }
       <form class="verify-code" (submit)="$event.preventDefault(); verify()">
@@ -67,9 +67,8 @@ interface Meta {
       <p>Until then you can <a routerLink="/public">browse all public recipes</a>.</p>
     } @else if (auth.isPending()) {
       <p>
-        Welcome, <strong>{{ auth.displayName() }}</strong
-        >. Your account is waiting for approval. Once it's approved you can keep your own recipes
-        and save other people's.
+        Welcome, <strong>{{ auth.displayName() }}</strong>. Your account is waiting for approval.
+        Once it's approved you can keep your own recipes and save other people's.
       </p>
       <p>Until then you can <a routerLink="/public">browse all public recipes</a>.</p>
       <p>
@@ -111,6 +110,7 @@ interface Meta {
       <p class="muted">read-api not reachable (is <code>make api</code> running?)</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .verify-code {
       max-width: 20rem;

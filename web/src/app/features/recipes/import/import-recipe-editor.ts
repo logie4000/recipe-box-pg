@@ -1,4 +1,12 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 
 import { AuthService } from '../../../core/auth.service';
 import { RecipePreview } from '../recipe-preview';
@@ -97,6 +105,7 @@ type Tab = 'edit' | 'preview';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       display: block;

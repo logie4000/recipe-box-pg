@@ -1,5 +1,12 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  inject,
+  OnInit,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 
@@ -251,6 +258,7 @@ interface PickerRecipe {
       </li>
     </ng-template>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .wrap {
       flex-wrap: wrap;

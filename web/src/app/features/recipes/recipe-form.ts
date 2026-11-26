@@ -8,6 +8,7 @@ import {
   input,
   OnInit,
   signal,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import {
   FormArray,
@@ -243,6 +244,7 @@ const MAX_NOTES_LENGTH = 10000;
       </form>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     form {
       border: 2px solid #000;

@@ -1,4 +1,12 @@
-import { Component, inject, input, model, OnInit, signal } from '@angular/core';
+import {
+  Component,
+  inject,
+  input,
+  model,
+  OnInit,
+  signal,
+  ChangeDetectionStrategy,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 
@@ -44,6 +52,7 @@ import { ShoppingListApi } from './shopping-list.api';
       <span class="error small" role="alert">{{ error() }}</span>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       display: inline-flex;

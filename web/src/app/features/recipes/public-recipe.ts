@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Component, inject, input, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 
@@ -93,6 +93,7 @@ import { SaveButton } from './save-button';
       <p>Loading…</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .recipe-top {
       display: grid;

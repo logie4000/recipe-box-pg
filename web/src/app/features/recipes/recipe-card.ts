@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { RecipePhoto } from './recipe-photo';
@@ -37,6 +37,7 @@ import { RecipePhoto } from './recipe-photo';
     </a>
     <div class="overlay"><ng-content select="[overlay]" /></div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     :host {
       position: relative;

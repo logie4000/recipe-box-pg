@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { Component, inject, input, OnInit, signal } from '@angular/core';
+import { Component, inject, input, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 
@@ -101,6 +101,7 @@ import { SharePanel } from './share-panel';
       <p>Loading…</p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .recipe-top {
       display: grid;

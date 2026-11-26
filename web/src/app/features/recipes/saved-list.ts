@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, ChangeDetectionStrategy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { countsLabel, RecipeCard } from './recipe-card';
@@ -52,6 +52,7 @@ import { SaveButton } from './save-button';
       </p>
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     li.removed app-recipe-card {
       opacity: 0.45;

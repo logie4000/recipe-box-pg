@@ -1,4 +1,4 @@
-import { Component, input, output, signal } from '@angular/core';
+import { Component, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 
 import { prepareImage } from './prepare-image';
 
@@ -56,6 +56,7 @@ import { prepareImage } from './prepare-image';
       }
     </div>
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .zone {
       position: relative;

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { RouterLink } from '@angular/router';
 
@@ -195,6 +195,7 @@ interface Row {
       }
     }
   `,
+  changeDetection: ChangeDetectionStrategy.Eager,
   styles: `
     .zone {
       display: grid;
